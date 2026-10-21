@@ -1,0 +1,688 @@
+<title>Planning d'occupation des salles – Mobilisation Paris Nanterre</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=JetBrains+Mono:wght@500&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout : bandeau d'en-tête + barre d'outils, puis une grille horaire (demi-heures × jours ou × salles) dans son propre conteneur défilant. */
+:root{
+  --bg:#f4f6f8; --surface:#ffffff; --ink:#17202b; --muted:#5b6674; --line:#e3e7ec; --line-strong:#c2cad4;
+  --accent:#1d5d8a; --accent-ink:#ffffff; --block:#d6e7f4; --block-edge:#2d77ab; --block-ink:#0e3350;
+  --warn:#c22a2a; --warn-bg:#fde8e8; --weekend:#eceff3; --today:#fff6d9; --plate:#17202b; --plate-ink:#ffffff;
+  --hatch:rgba(45,119,171,.18); --shadow:0 10px 30px rgba(16,30,48,.18);
+  --f-display:"Archivo","Arial Narrow",Arial,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",Arial,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --row:26px; --nrows:30; --timecol:58px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151b; --surface:#181e26; --ink:#e7ebf0; --muted:#9ba6b2; --line:#252d37; --line-strong:#38424f;
+  --accent:#72b4e6; --accent-ink:#0d1a26; --block:#1c3a53; --block-edge:#5aa2d8; --block-ink:#dcedfb;
+  --warn:#ff7a7a; --warn-bg:#3b1d20; --weekend:#151a21; --today:#2a2717; --plate:#e7ebf0; --plate-ink:#11151b;
+  --hatch:rgba(114,180,230,.16); --shadow:0 10px 30px rgba(0,0,0,.5); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151b; --surface:#181e26; --ink:#e7ebf0; --muted:#9ba6b2; --line:#252d37; --line-strong:#38424f;
+  --accent:#72b4e6; --accent-ink:#0d1a26; --block:#1c3a53; --block-edge:#5aa2d8; --block-ink:#dcedfb;
+  --warn:#ff7a7a; --warn-bg:#3b1d20; --weekend:#151a21; --today:#2a2717; --plate:#e7ebf0; --plate-ink:#11151b;
+  --hatch:rgba(114,180,230,.16); --shadow:0 10px 30px rgba(0,0,0,.5); color-scheme:dark}
+
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.4}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 32px;max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* En-tête */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 24px}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.status{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--muted)}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.status.ok i{background:#2f9e5b}.status.ro i{background:var(--accent)}.status.off i{background:var(--warn)}
+
+/* Barre d'outils */
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 14px;cursor:pointer;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line-strong)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:600}
+.nav{display:inline-flex;align-items:center;gap:6px}
+.btn{border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--ink)}
+.btn.icon{padding:7px 10px;font-family:var(--f-mono)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.danger{color:var(--warn);border-color:var(--warn)}
+.btn.danger.armed{background:var(--warn);color:var(--surface)}
+.field{border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:6px 10px;min-width:0}
+.range{font-family:var(--f-display);font-weight:600;font-size:17px;min-width:0}
+.spacer{flex:1 1 auto}
+
+.summary{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:13px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.sw{display:inline-block;width:18px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;border-left:3px solid var(--block-edge);background:var(--block)}
+.sw.req{background:repeating-linear-gradient(135deg,var(--surface) 0 4px,var(--hatch) 4px 8px)}
+.sw.conf{border-left-color:var(--warn);background:var(--warn-bg)}
+.notice{background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;padding:12px 14px;font-size:14px}
+.notice.warn{border-color:var(--warn);background:var(--warn-bg)}
+
+/* Grille */
+.scroller{overflow:auto;max-height:calc(100vh - 210px);min-height:420px;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;position:relative}
+.cal{display:grid;grid-template-columns:var(--timecol) repeat(var(--cols),minmax(var(--colmin),1fr));min-width:calc(var(--timecol) + var(--cols) * var(--colmin))}
+.dh,.corner{position:sticky;top:0;z-index:4;background:var(--surface);border-bottom:1px solid var(--line-strong);padding:7px 6px;min-height:46px}
+.corner{left:0;z-index:6;border-right:1px solid var(--line-strong)}
+.dh{border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center}
+.dh .dow{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.dh .dnum{font-family:var(--f-display);font-weight:600;font-size:16px}
+.dh.we{background:var(--weekend)}
+.dh.today .dnum{color:var(--accent)}
+.dh.today::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:3px;background:var(--accent);border-radius:2px}
+.dh.out{opacity:.55}
+.dh.room{align-items:flex-start;text-align:left}
+.dh .cap{font-size:11px;color:var(--muted)}
+.plate{font-family:var(--f-mono);font-size:11px;font-weight:500;background:var(--plate);color:var(--plate-ink);border-radius:3px;padding:1px 5px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle}
+.bat{font-size:11px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ev .plate,.ev .bat{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
+.place{display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 5px;min-width:0;max-width:100%}
+.dh .plate{font-size:12px;padding:2px 6px;white-space:normal}
+
+.times{position:sticky;left:0;z-index:3;background:var(--surface);border-right:1px solid var(--line-strong)}
+.tl{height:var(--row);font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:right;padding-right:7px;transform:translateY(-7px);font-variant-numeric:tabular-nums}
+.tl.h{color:var(--ink);font-weight:500}
+.tl:first-child{transform:none}
+.col{position:relative;height:calc(var(--nrows) * var(--row));border-left:1px solid var(--line);
+  background-image:repeating-linear-gradient(to bottom,var(--line-strong) 0 1px,transparent 1px calc(var(--row) * 2)),repeating-linear-gradient(to bottom,var(--line) 0 1px,transparent 1px var(--row))}
+.col.we{background-color:var(--weekend)}
+.col.today{background-color:var(--today)}
+.col.writable{cursor:copy}
+.now{position:absolute;left:0;right:0;height:2px;background:var(--warn);z-index:2;pointer-events:none}
+.now::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
+
+.ev{position:absolute;z-index:1;border:0;border-left:3px solid var(--block-edge);background:var(--block);color:var(--block-ink);border-radius:4px;padding:3px 5px;text-align:left;cursor:pointer;overflow:hidden;display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.25;box-shadow:0 0 0 1px var(--surface)}
+.ev:hover{filter:brightness(.97);z-index:2}
+.ev.req{background:repeating-linear-gradient(135deg,var(--surface) 0 5px,var(--hatch) 5px 10px);color:var(--ink);font-style:italic}
+.ev.conf{border-left-color:var(--warn);background:var(--warn-bg);color:var(--ink);box-shadow:0 0 0 1px var(--warn) inset}
+.ev-title{font-weight:600;overflow-wrap:break-word;hyphens:auto}
+.ev-meta{display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;font-size:11px;opacity:.9}
+.ev-time{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-style:normal}
+
+/* Liste */
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;background:var(--surface);position:sticky;top:0}
+td.t{font-family:var(--f-mono);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+th.grp{position:static;background:var(--bg);color:var(--ink);font-family:var(--f-display);font-size:13px;letter-spacing:.04em}
+table.rooms{min-width:620px}
+tr.cancel td{color:var(--muted);text-decoration:line-through}
+tr.conf td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
+.pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line-strong);white-space:nowrap}
+.pill.req{border-style:dashed}.pill.conf{border-color:var(--warn);color:var(--warn)}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+
+/* Panneau latéral */
+.backdrop{position:fixed;inset:0;background:rgba(10,16,24,.35);z-index:20}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--surface);z-index:21;box-shadow:var(--shadow);display:flex;flex-direction:column;
+  padding:calc(18px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) 20px;overflow-y:auto;gap:14px}
+.sheet h2{font-family:var(--f-display);font-size:20px;margin:0;text-wrap:balance}
+.sheet .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+form{display:flex;flex-direction:column;gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600}
+label .hint{font-weight:400;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two>*{min-width:0}
+.msg{font-size:14px;border-radius:8px;padding:9px 11px;background:var(--warn-bg);border:1px solid var(--warn)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;z-index:30;font-size:14px}
+@media (max-width:640px){.range{flex-basis:100%;order:-1}.scroller{max-height:none}}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}}}
+</style>
+
+<div class="wrap" lang="fr">
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">Mobilisation à l'Université Paris Nanterre</span>
+      <h1>Planning d'occupation des salles</h1>
+    </div>
+    <span id="status" class="status"><i></i><span id="statusText">Chargement…</span></span>
+  </header>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Vue">
+      <button type="button" id="v-semaine" data-view="semaine">Semaine</button>
+      <button type="button" id="v-jour" data-view="jour">Jour</button>
+      <button type="button" id="v-liste" data-view="liste">Liste</button>
+      <button type="button" id="v-salles" data-view="salles">Salles</button>
+    </div>
+    <div class="nav">
+      <button type="button" class="btn icon" id="prev" aria-label="Période précédente">‹</button>
+      <button type="button" class="btn" id="todayBtn">Aujourd'hui</button>
+      <button type="button" class="btn icon" id="next" aria-label="Période suivante">›</button>
+      <input type="date" class="field" id="pick" aria-label="Aller à la date">
+    </div>
+    <span class="range" id="range"></span>
+    <span class="spacer"></span>
+    <select class="field" id="filter" aria-label="Filtrer les salles"></select>
+    <button type="button" class="btn primary" id="addBtn" hidden>+ Réserver</button>
+  </div>
+
+  <div class="summary">
+    <span id="count"></span>
+    <span class="legend"><span><span class="sw"></span>Confirmée</span><span><span class="sw req"></span>Demandée</span><span><span class="sw conf"></span>Conflit de salle</span></span>
+  </div>
+
+  <div id="notice" hidden></div>
+  <main id="view"></main>
+</div>
+
+<div class="backdrop" id="backdrop" hidden></div>
+<aside class="sheet" id="sheet" hidden aria-modal="true" role="dialog" aria-labelledby="sheetTitle"></aside>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+const DEFAULT_BUILDING = "Paul Ricœur";
+const slug = n => n.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "salle";
+const DEFAULT_ROOMS = [
+  ["L R05","RDC",46],["L R15","RDC",120],["L R28","RDC",8],["Théâtre B.-M. Koltès","RDC",null],["Espace Pierre Reverdy","RDC",null],
+  ["L 111","1er",52],["L 118","1er",48,"Salle de répétition"],["L 120 / L 121","1er",8],["L 125","1er",20],["L 128","1er",46],
+  ["L 200","2e",60],["L 205","2e",44],["L 206","2e",42],["L 209","2e",28,"Salle de répétition"],["L 210","2e",44],["L 211","2e",40],["L 212","2e",null],["L 218","2e",90],["L 219","2e",36],
+  ["L 306","3e",50],["L 307","3e",44],["L 308","3e",30],["L 310","3e",40],["L 311","3e",44],["L 312","3e",40],["L 313","3e",40],["L 318","3e",60],["L 321","3e",42,"Studio podcast"],
+  ["L 418","4e",42],["L 419","4e",44,"Studio podcast"],["L 420","4e",46,"Studio podcast"],["L 421","4e",44],["Salle des conseils","4e",null]
+].map(([n,e,c,u]) => ({id:slug(n),n,b:DEFAULT_BUILDING,e,c:c ?? null,u:u || ""}));
+const FLOORS = ["RDC","1er","2e","3e","4e","Autre"];
+const FLOOR_LABEL = {RDC:"Rez-de-chaussée","1er":"1er étage","2e":"2e étage","3e":"3e étage","4e":"4e étage",Autre:"Autre emplacement"};
+const FLOOR_ALL = {RDC:"Tout le rez-de-chaussée","1er":"Tout le 1er étage","2e":"Tout le 2e étage","3e":"Tout le 3e étage","4e":"Tout le 4e étage",Autre:"Tous les autres emplacements"};
+const sortRooms = list => list.slice().sort((a,b) => a.b.localeCompare(b.b, "fr") || FLOORS.indexOf(a.e) - FLOORS.indexOf(b.e) || a.n.localeCompare(b.n, "fr", {numeric:true}));
+const buildings = () => [...new Set(ROOMS.map(r => r.b))];
+const multiB = () => buildings().length > 1;
+/* Groupes bâtiment × étage, dans l'ordre d'affichage. */
+function groups(list){
+  const out = [];
+  for (const b of [...new Set(list.map(r => r.b))]) for (const e of FLOORS) {
+    const rooms = list.filter(r => r.b === b && r.e === e);
+    if (rooms.length) out.push({b, e, rooms, label: `${b} · ${FLOOR_LABEL[e]}`});
+  }
+  return out;
+}
+let ROOMS = sortRooms(DEFAULT_ROOMS), roomsFromDb = false, ROOM_BY_ID = {};
+function indexRooms(){ ROOM_BY_ID = Object.fromEntries(ROOMS.map(r => [r.id, r])); }
+indexRooms();
+/* Une réservation désigne sa salle par son identifiant ; les plus anciennes, par nom (et bâtiment). */
+const roomOf = it => ROOM_BY_ID[it.salleId] || ROOMS.find(r => r.n === it.salle && (!it.batiment || r.b === it.batiment)) || null;
+const keyOf = it => { const r = roomOf(it); return r ? r.id : "?" + (it.batiment || "") + "|" + it.salle; };
+const nameOf = it => { const r = roomOf(it); return r ? r.n : it.salle; };
+const batOf = it => { const r = roomOf(it); return r ? r.b : (it.batiment || ""); };
+const place = (n, b) => `<span class="place"><span class="plate">${esc(n)}</span>${b ? `<span class="bat">${esc(b)}</span>` : ""}</span>`;
+const placeOf = it => place(nameOf(it), batOf(it));
+const placeText = it => `${nameOf(it)}${batOf(it) ? " (" + batOf(it) + ")" : ""}`;
+const START = 8*60, END = 23*60, STEP = 30, NROWS = (END-START)/STEP;
+const PERIOD = {from:"2026-10-18", to:"2026-11-15"};
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const monday = d => addDays(d, -((d.getDay()+6)%7));
+const toMin = s => { const [h,m] = String(s).split(":").map(Number); return h*60 + m; };
+const hhmm = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;
+const lab = m => `${Math.floor(m/60)}h${pad(m%60)}`;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fDow = new Intl.DateTimeFormat("fr-FR",{weekday:"short"});
+const fDM = new Intl.DateTimeFormat("fr-FR",{day:"numeric",month:"short"});
+const fLong = new Intl.DateTimeFormat("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+const fShort = new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"2-digit",month:"2-digit"});
+const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch {} }
+};
+
+const todayISO = iso(new Date());
+const state = {
+  view: ["semaine","jour","liste","salles"].includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.view") || "semaine"),
+  date: parse(todayISO >= PERIOD.from && todayISO <= PERIOD.to ? todayISO : PERIOD.from),
+  filter: store.get("ric.filter") || "all",
+  items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
+};
+if (!["semaine","jour","liste","salles"].includes(state.view)) state.view = "semaine";
+
+/* ---------- filtre ---------- */
+function buildFilter(){
+  let h = `<option value="all">Toutes les salles</option>`;
+  let lastB = null;
+  for (const g of groups(ROOMS)) {
+    if (g.b !== lastB) h += `<optgroup label="Bâtiment ${esc(g.b)}"><option value="bat:${esc(g.b)}">Tout le bâtiment ${esc(g.b)}</option></optgroup>`;
+    lastB = g.b;
+    h += `<optgroup label="${esc(g.label)}"><option value="floor:${esc(g.b)}|${g.e}">${FLOOR_ALL[g.e]}</option>`;
+    for (const r of g.rooms) h += `<option value="room:${esc(r.id)}">${esc(r.n)} – ${esc(r.b)}</option>`;
+    h += `</optgroup>`;
+  }
+  const bs = buildings();
+  $("filter").innerHTML = h;
+  if (![...$("filter").options].some(o => o.value === state.filter)) state.filter = "all";
+  $("filter").value = state.filter;
+}
+const roomsShown = () => state.filter === "all" ? ROOMS
+  : state.filter.startsWith("bat:") ? ROOMS.filter(r => r.b === state.filter.slice(4))
+  : state.filter.startsWith("floor:") ? (([b,e]) => ROOMS.filter(r => r.b === b && r.e === e))(state.filter.slice(6).split("|"))
+  : ROOMS.filter(r => r.id === state.filter.slice(5));
+const inFilter = it => { if (state.filter === "all") return true; const ids = new Set(roomsShown().map(r => r.id)); return ids.has(keyOf(it)); };
+
+/* ---------- données ---------- */
+function clean(d){
+  const x = d.data() || {};
+  if (typeof x.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x.date)) return null;
+  const s = toMin(x.debut), e = toMin(x.fin);
+  if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return null;
+  return { id: d.id, date: x.date, debut: x.debut, fin: x.fin, s, e, salle: String(x.salle || ""), salleId: typeof x.salleId === "string" ? x.salleId : "", batiment: String(x.batiment || ""), intitule: String(x.intitule || "Sans titre"),
+           demandeur: String(x.demandeur || ""), statut: ["Confirmée","Demandée","Annulée"].includes(x.statut) ? x.statut : "Confirmée",
+           remarques: String(x.remarques || ""), auteur: typeof x.auteur === "string" ? x.auteur : null, modifieLe: x.modifieLe || null };
+}
+const active = () => state.items.filter(i => i.statut !== "Annulée");
+function conflictsOf(rec, excludeId){
+  const k = rec.key || keyOf(rec);
+  return active().filter(o => o.id !== excludeId && keyOf(o) === k && o.date === rec.date && o.s < rec.e && rec.s < o.e);
+}
+function conflictIds(){
+  const set = new Set(), act = active().map(a => ({...a, k: keyOf(a)}));
+  for (let i = 0; i < act.length; i++) for (let j = i+1; j < act.length; j++) {
+    const a = act[i], b = act[j];
+    if (a.k === b.k && a.date === b.date && a.s < b.e && b.s < a.e) { set.add(a.id); set.add(b.id); }
+  }
+  return set;
+}
+
+/* ---------- mise en page des blocs ---------- */
+function lanes(evts){
+  const list = evts.map(e => ({...e, s: Math.max(e.s, START), e2: Math.min(e.e, END)})).filter(e => e.e2 > e.s)
+    .sort((a,b) => a.s - b.s || b.e2 - a.e2);
+  const out = []; let cluster = [], ends = [], cEnd = -1;
+  const flush = () => { const n = ends.length; cluster.forEach(x => x.n = n); out.push(...cluster); cluster = []; ends = []; cEnd = -1; };
+  for (const ev of list) {
+    if (cluster.length && ev.s >= cEnd) flush();
+    let lane = ends.findIndex(t => t <= ev.s);
+    if (lane < 0) { lane = ends.length; ends.push(ev.e2); } else ends[lane] = ev.e2;
+    ev.lane = lane; cluster.push(ev); cEnd = Math.max(cEnd, ev.e2);
+  }
+  if (cluster.length) flush();
+  return out;
+}
+function block(ev, conf, mode){
+  const top = (ev.s - START) / STEP, h = (ev.e2 - ev.s) / STEP;
+  const cls = ["ev", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : ""].join(" ");
+  const meta = mode === "jour" ? (ev.demandeur ? `<span>${esc(ev.demandeur)}</span>` : "") : placeOf(ev);
+  const tip = `${ev.intitule} – ${placeText(ev)} – ${lab(ev.s)} à ${lab(ev.e)}${ev.statut === "Demandée" ? " (demandée)" : ""}`;
+  return `<button type="button" class="${cls}" data-id="${esc(ev.id)}" title="${esc(tip)}"
+    style="top:calc(${top} * var(--row) + 1px);height:calc(${h} * var(--row) - 2px);left:calc(${ev.lane} * 100% / ${ev.n} + 2px);width:calc(100% / ${ev.n} - 4px)">
+    <span class="ev-title">${esc(ev.intitule)}</span>
+    <span class="ev-meta">${meta}<span class="ev-time">${lab(ev.s)}–${lab(ev.e)}</span></span></button>`;
+}
+function timeCol(){
+  let h = `<div class="times">`;
+  for (let i = 0; i < NROWS; i++) { const m = START + i*STEP; h += `<div class="tl ${m % 60 ? "" : "h"}">${lab(m)}</div>`; }
+  return h + `</div>`;
+}
+function nowLine(dISO){
+  if (dISO !== iso(new Date())) return "";
+  const n = new Date(), m = n.getHours()*60 + n.getMinutes();
+  if (m < START || m > END) return "";
+  return `<div class="now" style="top:calc(${(m-START)/STEP} * var(--row))"></div>`;
+}
+
+/* ---------- vues ---------- */
+function renderWeek(){
+  const mon = monday(state.date), days = [...Array(7)].map((_,i) => addDays(mon,i));
+  const conf = conflictIds(), shown = active().filter(inFilter);
+  $("range").textContent = `Semaine du ${fDM.format(days[0])} au ${fDM.format(days[6])} ${days[6].getFullYear()}`;
+  let n = 0, head = `<div class="corner"></div>`, cols = "";
+  for (const d of days) {
+    const di = iso(d), we = d.getDay() === 0 || d.getDay() === 6, today = di === iso(new Date()), out = di < PERIOD.from || di > PERIOD.to;
+    head += `<div class="dh ${we?"we":""} ${today?"today":""} ${out?"out":""}"><span class="dow">${esc(fDow.format(d).replace(".",""))}</span><span class="dnum">${esc(fDM.format(d))}</span></div>`;
+    const evs = lanes(shown.filter(i => i.date === di)); n += evs.length;
+    cols += `<div class="col ${we?"we":""} ${today?"today":""} ${state.canWrite?"writable":""}" data-date="${di}">${nowLine(di)}${evs.map(e => block(e, conf, "semaine")).join("")}</div>`;
+  }
+  $("count").textContent = n ? `${n} réservation${n>1?"s":""} cette semaine` : "Aucune réservation cette semaine";
+  return `<div class="scroller"><div class="cal" style="--cols:7;--colmin:150px">${head}${timeCol()}${cols}</div></div>`;
+}
+function renderDay(){
+  const di = iso(state.date), conf = conflictIds(), rooms = roomsShown();
+  const we = state.date.getDay() === 0 || state.date.getDay() === 6;
+  $("range").textContent = cap1(fLong.format(state.date));
+  let n = 0, head = `<div class="corner"></div>`, cols = "";
+  for (const r of rooms) {
+    head += `<div class="dh room ${we?"we":""}"><span class="plate">${esc(r.n)}</span><span class="cap">${esc(r.b)} · ${esc(r.e)}${r.c ? ` · ${r.c} pl.` : ""}${r.u ? ` · ${esc(r.u)}` : ""}</span></div>`;
+    const evs = lanes(active().filter(i => i.date === di && keyOf(i) === r.id)); n += evs.length;
+    cols += `<div class="col ${we?"we":""} ${state.canWrite?"writable":""}" data-date="${di}" data-room="${esc(r.id)}">${nowLine(di)}${evs.map(e => block(e, conf, "jour")).join("")}</div>`;
+  }
+  const ids = new Set(rooms.map(r => r.id)), busy = new Set(active().filter(i => i.date === di && ids.has(keyOf(i))).map(keyOf)).size;
+  $("count").textContent = n ? `${n} réservation${n>1?"s":""} ce jour · ${rooms.length - busy} salle${rooms.length-busy>1?"s":""} libre${rooms.length-busy>1?"s":""} toute la journée` : "Aucune réservation ce jour : toutes les salles sont libres";
+  return `<div class="scroller"><div class="cal" style="--cols:${rooms.length};--colmin:118px">${head}${timeCol()}${cols}</div></div>`;
+}
+function renderList(){
+  const conf = conflictIds();
+  const rows = state.items.filter(inFilter).slice().sort((a,b) => a.date.localeCompare(b.date) || a.s - b.s || nameOf(a).localeCompare(nameOf(b), "fr", {numeric:true}));
+  $("range").textContent = "Toutes les réservations";
+  const nAct = rows.filter(r => r.statut !== "Annulée").length;
+  $("count").textContent = rows.length ? `${nAct} réservation${nAct>1?"s":""} active${nAct>1?"s":""}${rows.length - nAct ? ` · ${rows.length - nAct} annulée${rows.length-nAct>1?"s":""}` : ""}` : "Aucune réservation";
+  if (!rows.length) return `<div class="tablewrap"><div class="empty">${emptyText()}</div></div>`;
+  return `<div class="tablewrap"><table><thead><tr><th>Date</th><th>Horaires</th><th>Salle</th><th>Bâtiment</th><th>Événement</th><th>Demandeur</th><th>Statut</th></tr></thead><tbody>${
+    rows.map(r => `<tr class="${r.statut==="Annulée"?"cancel":""} ${conf.has(r.id)?"conf":""}">
+      <td class="t">${esc(fShort.format(parse(r.date)).replace(".",""))}</td><td class="t">${lab(r.s)}–${lab(r.e)}</td>
+      <td><span class="plate">${esc(nameOf(r))}</span></td><td>${esc(batOf(r)) || "—"}</td>
+      <td><button type="button" class="btn" style="padding:2px 8px" data-id="${esc(r.id)}">${esc(r.intitule)}</button></td>
+      <td>${esc(r.demandeur)}</td>
+      <td><span class="pill ${r.statut==="Demandée"?"req":""} ${conf.has(r.id)?"conf":""}">${conf.has(r.id) ? "Conflit" : esc(r.statut)}</span></td></tr>`).join("")
+  }</tbody></table></div>`;
+}
+function emptyText(){
+  if (state.dbState === "off") return "Les réservations ne sont visibles qu'une fois connecté à Claude.";
+  return state.canWrite ? "Aucune réservation pour l'instant. Cliquez sur « + Réserver » ou directement dans la grille pour en ajouter une." : "Aucune réservation pour l'instant.";
+}
+
+function render(){
+  for (const b of document.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.view === state.view));
+  $("pick").value = iso(state.date);
+  $("addBtn").hidden = !state.canWrite || state.dbState !== "ok";
+  $("addBtn").textContent = state.view === "salles" ? "+ Ajouter une salle" : "+ Réserver";
+  const nav = state.view === "semaine" || state.view === "jour";
+  for (const id of ["prev","next","todayBtn","pick"]) $(id).hidden = !nav;
+  document.querySelector(".legend").hidden = state.view === "salles";
+  const v = $("view");
+  v.innerHTML = state.view === "semaine" ? renderWeek() : state.view === "jour" ? renderDay() : state.view === "liste" ? renderList() : renderRooms();
+}
+function setStatus(){
+  const s = $("status"), t = $("statusText"), nb = $("notice");
+  s.className = "status";
+  if (state.dbState === "loading") { t.textContent = "Chargement…"; nb.hidden = true; return; }
+  if (state.dbState === "off") {
+    s.classList.add("off"); t.textContent = "Réservations indisponibles";
+    nb.className = "notice warn"; nb.hidden = false;
+    nb.textContent = "Les réservations ne s'affichent que pour les personnes connectées à Claude et invitées sur cette page. Connectez-vous, puis rechargez la page.";
+    return;
+  }
+  nb.hidden = true;
+  if (state.dbState === "snapshot") {
+    const t0 = SNAP && SNAP.genere ? new Date(SNAP.genere) : null;
+    s.classList.add("ro");
+    t.textContent = t0 && !isNaN(t0) ? `Consultation · mis à jour le ${t0.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})} à ${t0.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}).replace(":","h")}` : "Consultation";
+    return;
+  }
+  if (state.canWrite) { s.classList.add("ok"); t.textContent = "Vous pouvez réserver"; }
+  else { s.classList.add("ro"); t.textContent = "Consultation"; }
+}
+
+/* ---------- panneau ---------- */
+let sheetEl = $("sheet"), lastFocus = null;
+function openSheet(html){
+  lastFocus = document.activeElement;
+  sheetEl.innerHTML = html; sheetEl.hidden = false; $("backdrop").hidden = false;
+  const f = sheetEl.querySelector("input,select,textarea,button"); if (f) f.focus();
+}
+function closeSheet(){
+  sheetEl.hidden = true; $("backdrop").hidden = true; sheetEl.innerHTML = "";
+  if (lastFocus && lastFocus.focus) lastFocus.focus();
+}
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2600);
+}
+function timeOptions(sel, from, to){
+  let h = ""; for (let m = from; m <= to; m += STEP) h += `<option value="${hhmm(m)}" ${hhmm(m) === sel ? "selected" : ""}>${lab(m)}</option>`; return h;
+}
+function roomOptions(sel){
+  return groups(ROOMS).map(g => `<optgroup label="${esc(g.label)}">${g.rooms.map(r =>
+    `<option value="${esc(r.id)}" ${r.id === sel ? "selected" : ""}>${esc(r.n)}${r.c ? ` (${r.c} pl.)` : ""}</option>`).join("")}</optgroup>`).join("");
+}
+async function details(it){
+  let who = "";
+  if (it.auteur && state.user) { try { const ps = await state.user.profiles([it.auteur]); who = ps[it.auteur]?.name || ""; } catch {} }
+  const conf = conflictsOf(it, it.id);
+  openSheet(`<div class="head"><h2>${esc(it.intitule)}</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
+    ${it.statut !== "Annulée" && conf.length ? `<div class="msg">Conflit : la salle est aussi réservée pour ${conf.map(c => `« ${esc(c.intitule)} » (${lab(c.s)}–${lab(c.e)})`).join(", ")}.</div>` : ""}
+    <dl><dt>Date</dt><dd>${esc(cap1(fLong.format(parse(it.date))))}</dd>
+    <dt>Horaires</dt><dd>${lab(it.s)} – ${lab(it.e)}</dd>
+    <dt>Salle</dt><dd><span class="plate">${esc(nameOf(it))}</span></dd>
+    <dt>Bâtiment</dt><dd>${esc(batOf(it)) || "—"}</dd>
+    <dt>Demandeur</dt><dd>${esc(it.demandeur) || "—"}</dd>
+    <dt>Statut</dt><dd>${esc(it.statut)}</dd>
+    ${it.remarques ? `<dt>Remarques</dt><dd>${esc(it.remarques)}</dd>` : ""}
+    ${who ? `<dt>Saisie par</dt><dd>${esc(who)}</dd>` : ""}</dl>
+    ${state.canWrite ? `<div class="actions"><button type="button" class="btn primary" data-edit="${esc(it.id)}">Modifier</button></div>` : ""}`);
+}
+function form(it, preset){
+  const p = it ? {...it, salleId: roomOf(it) ? roomOf(it).id : ""} : (preset || {});
+  const s = p.debut || "09:00", e = p.fin || hhmm(Math.min(toMin(s) + 120, END));
+  openSheet(`<div class="head"><h2 id="sheetTitle">${it ? "Modifier la réservation" : "Nouvelle réservation"}</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
+  <form id="resForm" novalidate>
+    <label for="f-intitule">Intitulé de l'événement<input class="field" id="f-intitule" required maxlength="140" value="${esc(p.intitule || "")}" placeholder="Ex. Journée d'étude du laboratoire"></label>
+    <label for="f-salle">Salle<select class="field" id="f-salle" required>${ROOM_BY_ID[p.salleId] ? "" : `<option value="">Choisir une salle…</option>`}${roomOptions(p.salleId)}</select></label>
+    <label for="f-date">Date<input class="field" type="date" id="f-date" required value="${esc(p.date || iso(state.date))}"></label>
+    <div class="two">
+      <label for="f-debut">Début<select class="field" id="f-debut">${timeOptions(s, START, END - STEP)}</select></label>
+      <label for="f-fin">Fin<select class="field" id="f-fin">${timeOptions(e, START + STEP, END)}</select></label>
+    </div>
+    <label for="f-demandeur">Demandeur / service <span class="hint">facultatif</span><input class="field" id="f-demandeur" maxlength="120" value="${esc(p.demandeur || "")}"></label>
+    <label for="f-statut">Statut<select class="field" id="f-statut">${["Confirmée","Demandée","Annulée"].filter(x => it || x !== "Annulée").map(x => `<option ${x === (p.statut || "Confirmée") ? "selected" : ""}>${x}</option>`).join("")}</select></label>
+    <label for="f-remarques">Remarques <span class="hint">facultatif</span><textarea class="field" id="f-remarques" rows="3" maxlength="600">${esc(p.remarques || "")}</textarea></label>
+    <div id="formMsg" hidden></div>
+    <div class="actions">
+      <button type="submit" class="btn primary" id="saveBtn">Enregistrer</button>
+      <button type="button" class="btn" data-close>Fermer</button>
+      <span class="spacer"></span>
+      ${it ? `<button type="button" class="btn danger" id="delBtn">Supprimer</button>` : ""}
+    </div>
+  </form>`);
+  const fm = $("resForm"); let force = false, armedDel = false;
+  const say = (html) => { const m = $("formMsg"); m.className = "msg"; m.innerHTML = html; m.hidden = !html; };
+  fm.addEventListener("input", () => { if (force) { force = false; $("saveBtn").textContent = "Enregistrer"; say(""); } });
+  fm.addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const room = ROOM_BY_ID[$("f-salle").value];
+    const rec = { intitule: $("f-intitule").value.trim(), salleId: room ? room.id : "", salle: room ? room.n : "", batiment: room ? room.b : "", date: $("f-date").value,
+      debut: $("f-debut").value, fin: $("f-fin").value, demandeur: $("f-demandeur").value.trim(), statut: $("f-statut").value, remarques: $("f-remarques").value.trim() };
+    if (!rec.intitule) return say("Indiquez l'intitulé de l'événement."), $("f-intitule").focus();
+    if (!rec.salle) return say("Choisissez une salle."), $("f-salle").focus();
+    if (!rec.date) return say("Indiquez la date."), $("f-date").focus();
+    const s2 = toMin(rec.debut), e2 = toMin(rec.fin);
+    if (e2 <= s2) return say("L'heure de fin doit être après l'heure de début."), $("f-fin").focus();
+    if (rec.statut !== "Annulée") {
+      const c = conflictsOf({...rec, key: room.id, s: s2, e: e2}, it && it.id);
+      if (c.length && !force) {
+        force = true; $("saveBtn").textContent = "Enregistrer malgré le conflit";
+        return say(`La salle ${esc(rec.salle)} (${esc(rec.batiment)}) est déjà réservée sur ce créneau : ${c.map(x => `« ${esc(x.intitule)} » (${lab(x.s)}–${lab(x.e)})`).join(", ")}. Changez la salle ou l'horaire, ou confirmez.`);
+      }
+    }
+    const body = {...rec, auteur: (it && it.auteur) || state.myId || null, modifieLe: new Date().toISOString()};
+    $("saveBtn").disabled = true;
+    try {
+      if (it) await state.db.doc("reservations/" + it.id).set(body);
+      else await state.db.collection("reservations").add(body);
+      closeSheet(); toast(it ? "Réservation modifiée" : "Réservation enregistrée");
+      state.date = parse(rec.date); render();
+    } catch (err) { $("saveBtn").disabled = false; say(writeError(err)); }
+  });
+  const del = $("delBtn");
+  if (del) del.addEventListener("click", async () => {
+    if (!armedDel) { armedDel = true; del.classList.add("armed"); del.textContent = "Confirmer la suppression"; return; }
+    del.disabled = true;
+    try { await state.db.doc("reservations/" + it.id).delete(); closeSheet(); toast("Réservation supprimée"); }
+    catch (err) { del.disabled = false; say(writeError(err)); }
+  });
+}
+/* ---------- salles ---------- */
+function renderRooms(){
+  const rooms = roomsShown(), today = iso(new Date());
+  const bs = buildings();
+  $("range").textContent = bs.length === 1 ? `Salles du bâtiment ${bs[0]}` : `Salles de ${bs.length} bâtiments`;
+  $("count").textContent = `${rooms.length} salle${rooms.length>1?"s":""}${state.filter === "all" ? "" : " dans ce filtre"}`;
+  const upcoming = id => active().filter(i => keyOf(i) === id && i.date >= today).length;
+  let rows = "";
+  for (const g of groups(rooms)) {
+    const list = g.rooms;
+    rows += `<tr><th colspan="${state.canWrite ? 7 : 6}" class="grp">${esc(g.label)}</th></tr>`;
+    rows += list.map(r => { const n = upcoming(r.id); return `<tr>
+      <td><span class="plate">${esc(r.n)}</span></td><td>${esc(r.b)}</td><td>${esc(r.e)}</td><td class="t">${r.c ? r.c + " pl." : "—"}</td><td>${esc(r.u) || "—"}</td>
+      <td>${n ? `${n} à venir` : "Aucune"}</td>
+      ${state.canWrite ? `<td><button type="button" class="btn" style="padding:2px 10px" data-room-edit="${esc(r.id)}">Modifier</button></td>` : ""}</tr>`; }).join("");
+  }
+  if (!rows) return `<div class="tablewrap"><div class="empty">Aucune salle dans ce filtre.</div></div>`;
+  return `<div class="tablewrap"><table class="rooms"><thead><tr><th>Salle</th><th>Bâtiment</th><th>Étage</th><th>Capacité</th><th>Usage</th><th>Réservations</th>${state.canWrite ? "<th></th>" : ""}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function roomForm(room){
+  const fb = state.filter.startsWith("bat:") ? state.filter.slice(4) : state.filter.startsWith("floor:") ? state.filter.slice(6).split("|")[0] : buildings()[0] || DEFAULT_BUILDING;
+  const fe = state.filter.startsWith("floor:") ? state.filter.slice(6).split("|")[1] : "RDC";
+  const r = room || {n:"", b: fb, e: fe, c:null, u:""};
+  const nRes = room ? state.items.filter(i => keyOf(i) === room.id).length : 0;
+  openSheet(`<div class="head"><h2 id="sheetTitle">${room ? "Modifier la salle" : "Nouvelle salle"}</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
+  <form id="roomForm" novalidate>
+    <label for="r-nom">Nom ou numéro de la salle<input class="field" id="r-nom" required maxlength="60" value="${esc(r.n)}" placeholder="Ex. L 322"></label>
+    <label for="r-bat">Bâtiment <span class="hint">choisissez dans la liste ou tapez un nouveau nom</span><input class="field" id="r-bat" required maxlength="60" list="r-bat-list" value="${esc(r.b)}" autocomplete="off"><datalist id="r-bat-list">${buildings().map(b => `<option value="${esc(b)}"></option>`).join("")}</datalist></label>
+    <label for="r-etage">Étage<select class="field" id="r-etage">${FLOORS.map(f => `<option value="${f}" ${f === r.e ? "selected" : ""}>${FLOOR_LABEL[f]}</option>`).join("")}</select></label>
+    <label for="r-cap">Capacité <span class="hint">nombre de places, facultatif</span><input class="field" id="r-cap" type="number" min="1" max="2000" step="1" inputmode="numeric" value="${r.c ?? ""}"></label>
+    <label for="r-usage">Usage <span class="hint">facultatif</span><input class="field" id="r-usage" maxlength="80" value="${esc(r.u)}" placeholder="Ex. Salle de répétition"></label>
+    ${room && nRes ? `<p class="hint" style="margin:0;font-size:13px;color:var(--muted)">${nRes} réservation${nRes>1?"s":""} utilise${nRes>1?"nt":""} cette salle. Si vous changez son nom ou son bâtiment, elle${nRes>1?"s":""} suivr${nRes>1?"ont":"a"}.</p>` : ""}
+    <div id="roomMsg" hidden></div>
+    <div class="actions">
+      <button type="submit" class="btn primary" id="roomSave">Enregistrer</button>
+      <button type="button" class="btn" data-close>Fermer</button>
+      <span class="spacer"></span>
+      ${room ? `<button type="button" class="btn danger" id="roomDel">Supprimer</button>` : ""}
+    </div>
+  </form>`);
+  const say = html => { const m = $("roomMsg"); m.className = "msg"; m.innerHTML = html; m.hidden = !html; };
+  $("roomForm").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const batiment = $("r-bat").value.trim().replace(/\s+/g, " ");
+    const nom = $("r-nom").value.trim().replace(/\s+/g, " "), etage = $("r-etage").value, usage = $("r-usage").value.trim();
+    const capRaw = $("r-cap").value.trim(), capacite = capRaw === "" ? null : Math.round(Number(capRaw));
+    if (!nom) return say("Indiquez le nom de la salle."), $("r-nom").focus();
+    if (!batiment) return say("Indiquez le bâtiment."), $("r-bat").focus();
+    if (capacite !== null && !(capacite > 0)) return say("La capacité doit être un nombre de places positif, ou rester vide."), $("r-cap").focus();
+    const dup = ROOMS.find(x => x.n.toLowerCase() === nom.toLowerCase() && x.b.toLowerCase() === batiment.toLowerCase() && (!room || x.id !== room.id));
+    if (dup) return say(`La salle « ${esc(dup.n)} » existe déjà dans le bâtiment ${esc(dup.b)}.`), $("r-nom").focus();
+    $("roomSave").disabled = true;
+    try {
+      await ensureRoomsInDb();
+      const body = {nom, batiment, etage, capacite, usage};
+      if (room) {
+        const linked = state.items.filter(i => keyOf(i) === room.id);
+        await state.db.doc("salles/" + room.id).set(body);
+        if (room.n !== nom || room.b !== batiment || linked.some(i => i.salleId !== room.id))
+          for (const it of linked) await state.db.doc("reservations/" + it.id).update({salleId: room.id, salle: nom, batiment});
+      } else await state.db.collection("salles").add(body);
+      closeSheet(); toast(room ? "Salle modifiée" : "Salle ajoutée");
+    } catch (err) { $("roomSave").disabled = false; say(writeError(err)); }
+  });
+  const del = $("roomDel"); let armed = false;
+  if (del) del.addEventListener("click", async () => {
+    if (!armed) {
+      armed = true; del.classList.add("armed"); del.textContent = "Confirmer la suppression";
+      if (nRes) say(`${nRes} réservation${nRes>1?"s":""} concerne${nRes>1?"nt":""} cette salle. Elle${nRes>1?"s":""} restera dans la liste mais n'apparaîtr${nRes>1?"ont":"a"} plus dans la vue Jour.`);
+      return;
+    }
+    del.disabled = true;
+    try {
+      await ensureRoomsInDb();
+      await state.db.doc("salles/" + room.id).delete();
+      if (state.filter === "room:" + room.id) { state.filter = "all"; store.set("ric.filter", "all"); }
+      closeSheet(); toast("Salle supprimée");
+    } catch (err) { del.disabled = false; say(writeError(err)); }
+  });
+}
+/* La liste par défaut n'existe que dans la page tant que la base est vide : on l'y enregistre avant la première modification. */
+async function ensureRoomsInDb(){
+  if (roomsFromDb) return;
+  for (const r of DEFAULT_ROOMS) {
+    await state.db.doc("salles/" + r.id).set({nom: r.n, batiment: r.b, etage: r.e, capacite: r.c, usage: r.u});
+  }
+  ROOMS = sortRooms(DEFAULT_ROOMS); roomsFromDb = true;
+}
+
+function writeError(err){
+  const code = err && err.code;
+  if (code === "invalid_argument") { state.canWrite = false; setStatus(); render(); return "Vous n'avez pas le droit de modifier ce planning. Demandez au propriétaire de vous inviter avec le droit « Peut modifier »."; }
+  if (code === "quota_exceeded") return "Le planning a atteint sa capacité maximale. Supprimez d'anciennes réservations puis réessayez.";
+  if (code === "revoked" || code === "not_granted") return "Votre accès à cette page a changé. Rechargez la page.";
+  return "L'enregistrement n'a pas abouti. Vérifiez votre connexion et réessayez.";
+}
+
+/* ---------- événements ---------- */
+document.querySelector(".seg").addEventListener("click", e => {
+  const b = e.target.closest("button[data-view]"); if (!b) return;
+  state.view = b.dataset.view; store.set("ric.view", state.view); render();
+});
+$("prev").addEventListener("click", () => { state.date = addDays(state.date, state.view === "semaine" ? -7 : -1); render(); });
+$("next").addEventListener("click", () => { state.date = addDays(state.date, state.view === "semaine" ? 7 : 1); render(); });
+$("todayBtn").addEventListener("click", () => { state.date = parse(iso(new Date())); render(); });
+$("pick").addEventListener("change", e => { if (e.target.value) { state.date = parse(e.target.value); render(); } });
+$("filter").addEventListener("change", e => { state.filter = e.target.value; store.set("ric.filter", state.filter); render(); });
+$("addBtn").addEventListener("click", () => {
+  if (state.view === "salles") return roomForm(null);
+  const room = state.filter.startsWith("room:") ? state.filter.slice(5) : "";
+  form(null, { date: iso(state.date), salleId: room });
+});
+$("view").addEventListener("click", e => {
+  const re = e.target.closest("[data-room-edit]");
+  if (re) { const r = ROOM_BY_ID[re.dataset.roomEdit]; if (r) roomForm(r); return; }
+  const b = e.target.closest("[data-id]");
+  if (b) { const it = state.items.find(i => i.id === b.dataset.id); if (it) details(it); return; }
+  const col = e.target.closest(".col");
+  if (col && state.canWrite && e.target === col) {
+    const y = e.clientY - col.getBoundingClientRect().top;
+    const row = Math.max(0, Math.min(NROWS - 1, Math.floor(y / (col.clientHeight / NROWS))));
+    const s = START + row * STEP;
+    const room = col.dataset.room || (state.filter.startsWith("room:") ? state.filter.slice(5) : "");
+    form(null, { date: col.dataset.date, debut: hhmm(s), fin: hhmm(Math.min(s + 120, END)), salleId: room });
+  }
+});
+sheetEl.addEventListener("click", e => {
+  if (e.target.closest("[data-close]")) return closeSheet();
+  const ed = e.target.closest("[data-edit]");
+  if (ed) { const it = state.items.find(i => i.id === ed.dataset.edit); if (it) form(it); }
+});
+$("backdrop").addEventListener("click", closeSheet);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !sheetEl.hidden) closeSheet(); });
+setInterval(() => { if (sheetEl.hidden && (state.view === "semaine" || state.view === "jour")) render(); }, 5 * 60 * 1000);
+
+/* ---------- démarrage ---------- */
+function parseRoom(d){
+  const x = d.data() || {}, n = String(x.nom || "").trim();
+  return n ? {id: d.id, n, b: String(x.batiment || "").trim() || DEFAULT_BUILDING, e: FLOORS.includes(x.etage) ? x.etage : "Autre", c: Number(x.capacite) > 0 ? Number(x.capacite) : null, u: String(x.usage || "")} : null;
+}
+function setRooms(list){ roomsFromDb = list.length > 0; ROOMS = roomsFromDb ? sortRooms(list) : sortRooms(DEFAULT_ROOMS); indexRooms(); }
+/* Copie publique : les données sont intégrées à la page (window.__SNAPSHOT), en lecture seule. */
+const SNAP = window.__SNAPSHOT || null;
+buildFilter(); setStatus(); render();
+if (SNAP) {
+  const asDoc = x => ({id: x.id, data: () => x.data});
+  setRooms((SNAP.salles || []).map(asDoc).map(parseRoom).filter(Boolean));
+  state.items = (SNAP.reservations || []).map(asDoc).map(clean).filter(Boolean);
+  state.dbState = "snapshot"; state.canWrite = false;
+  buildFilter(); setStatus(); render();
+} else (async () => {
+  const c = window.claude;
+  const [db, user] = await Promise.all([c ? c.use("db") : null, c ? c.use("user") : null]);
+  state.user = user;
+  if (!db) { state.dbState = "off"; setStatus(); render(); return; }
+  state.db = db;
+  if (user) {
+    state.myId = await user.id();
+    const can = await user.can("data.write");
+    state.canWrite = can === null ? await user.canEdit() || !!state.myId : can;
+  }
+  db.collection("salles").onSnapshot(snap => { setRooms(snap.docs.map(parseRoom).filter(Boolean)); buildFilter(); render(); }, () => {});
+  db.collection("reservations").onSnapshot(snap => {
+    state.items = snap.docs.map(clean).filter(Boolean);
+    state.dbState = "ok"; setStatus();
+    render();
+  }, err => {
+    state.dbState = err && err.code === "revoked" ? "off" : "ok"; setStatus(); render();
+  });
+})();
+})();
+</script>
