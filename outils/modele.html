@@ -105,6 +105,8 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);m
 .ev.req{background:repeating-linear-gradient(135deg,var(--surface) 0 5px,var(--hatch) 5px 10px);color:var(--ink);font-style:italic}
 .ev.conf{border-left-color:var(--warn);background:var(--warn-bg);color:var(--ink);box-shadow:0 0 0 1px var(--warn) inset}
 .ev-title{font-weight:600;overflow-wrap:break-word;hyphens:auto}
+.ev-who{font-size:11px;font-weight:600;opacity:.85;overflow-wrap:break-word}
+dd.notes{white-space:pre-wrap}
 .ev-meta{display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;font-size:11px;opacity:.9}
 .ev-time{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-style:normal}
 
@@ -329,11 +331,12 @@ function lanes(evts){
 function block(ev, conf, mode){
   const top = (ev.s - START) / STEP, h = (ev.e2 - ev.s) / STEP;
   const cls = ["ev", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : ""].join(" ");
-  const meta = mode === "jour" ? (ev.demandeur ? `<span>${esc(ev.demandeur)}</span>` : "") : placeOf(ev);
-  const tip = `${ev.intitule} – ${placeText(ev)} – ${lab(ev.s)} à ${lab(ev.e)}${ev.statut === "Demandée" ? " (demandée)" : ""}`;
+  const meta = mode === "jour" ? "" : placeOf(ev);
+  const tip = `${ev.intitule}${ev.demandeur ? " – " + ev.demandeur : ""} – ${placeText(ev)} – ${lab(ev.s)} à ${lab(ev.e)}${ev.statut === "Demandée" ? " (demandée)" : ""}`;
   return `<button type="button" class="${cls}" data-id="${esc(ev.id)}" title="${esc(tip)}"
     style="top:calc(${top} * var(--row) + 1px);height:calc(${h} * var(--row) - 2px);left:calc(${ev.lane} * 100% / ${ev.n} + 2px);width:calc(100% / ${ev.n} - 4px)">
     <span class="ev-title">${esc(ev.intitule)}</span>
+    ${ev.demandeur ? `<span class="ev-who">${esc(ev.demandeur)}</span>` : ""}
     <span class="ev-meta">${meta}<span class="ev-time">${lab(ev.s)}–${lab(ev.e)}</span></span></button>`;
 }
 function timeCol(){
@@ -397,7 +400,7 @@ function renderList(){
   const nAct = rows.filter(r => r.statut !== "Annulée").length;
   $("count").textContent = rows.length ? `${nAct} réservation${nAct>1?"s":""} active${nAct>1?"s":""}${rows.length - nAct ? ` · ${rows.length - nAct} annulée${rows.length-nAct>1?"s":""}` : ""}` : "Aucune réservation";
   if (!rows.length) return `<div class="tablewrap"><div class="empty">${emptyText()}</div></div>`;
-  return `<div class="tablewrap"><table><thead><tr><th>Date</th><th>Horaires</th><th>Salle</th><th>Bâtiment</th><th>Événement</th><th>Demandeur</th><th>Statut</th></tr></thead><tbody>${
+  return `<div class="tablewrap"><table><thead><tr><th>Date</th><th>Horaires</th><th>Salle</th><th>Bâtiment</th><th>Événement</th><th>Intervenant-e</th><th>Statut</th></tr></thead><tbody>${
     rows.map(r => `<tr class="${r.statut==="Annulée"?"cancel":""} ${conf.has(r.id)?"conf":""}">
       <td class="t">${esc(fShort.format(parse(r.date)).replace(".",""))}</td><td class="t">${lab(r.s)}–${lab(r.e)}</td>
       <td>${hasRoom(r) ? `<span class="plate">${esc(nameOf(r))}</span>` : "—"}</td><td>${esc(batOf(r)) || "—"}</td>
@@ -480,9 +483,9 @@ async function details(it){
     <dt>Horaires</dt><dd>${lab(it.s)} – ${lab(it.e)}</dd>
     <dt>Salle</dt><dd>${hasRoom(it) ? `<span class="plate">${esc(nameOf(it))}</span>` : "Non précisée"}</dd>
     <dt>Bâtiment</dt><dd>${esc(batOf(it)) || "—"}</dd>
-    <dt>Demandeur</dt><dd>${esc(it.demandeur) || "—"}</dd>
+    <dt>Intervenant-e</dt><dd>${esc(it.demandeur) || "—"}</dd>
+    <dt>Remarques</dt><dd class="notes">${esc(it.remarques) || "—"}</dd>
     <dt>Statut</dt><dd>${esc(it.statut)}</dd>
-    ${it.remarques ? `<dt>Remarques</dt><dd>${esc(it.remarques)}</dd>` : ""}
     ${who ? `<dt>Saisie par</dt><dd>${esc(who)}</dd>` : ""}</dl>
     ${state.canWrite ? `<div class="actions"><button type="button" class="btn primary" data-edit="${esc(it.id)}">Modifier</button></div>` : ""}`);
 }
@@ -498,7 +501,7 @@ function form(it, preset){
       <label for="f-debut">Début<select class="field" id="f-debut">${timeOptions(s, START, END - STEP)}</select></label>
       <label for="f-fin">Fin<select class="field" id="f-fin">${timeOptions(e, START + STEP, END)}</select></label>
     </div>
-    <label for="f-demandeur">Demandeur / service <span class="hint">facultatif</span><input class="field" id="f-demandeur" maxlength="120" value="${esc(p.demandeur || "")}"></label>
+    <label for="f-demandeur">Intervenant-e <span class="hint">facultatif</span><input class="field" id="f-demandeur" maxlength="120" value="${esc(p.demandeur || "")}"></label>
     <label for="f-statut">Statut<select class="field" id="f-statut">${["Confirmée","Demandée","Annulée"].filter(x => it || x !== "Annulée").map(x => `<option ${x === (p.statut || "Confirmée") ? "selected" : ""}>${x}</option>`).join("")}</select></label>
     <label for="f-remarques">Remarques <span class="hint">facultatif</span><textarea class="field" id="f-remarques" rows="3" maxlength="600">${esc(p.remarques || "")}</textarea></label>
     <div id="formMsg" hidden></div>
