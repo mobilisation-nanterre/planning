@@ -37,6 +37,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .brand{display:flex;flex-direction:column;gap:2px;min-width:0}
 .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.topright{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.publink{font-size:13px;color:var(--accent)}
 .status{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--muted)}
 .status i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
 .status.ok i{background:#2f9e5b}.status.ro i{background:var(--accent)}.status.off i{background:var(--warn)}
@@ -146,7 +148,11 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
       <span class="eyebrow">Mobilisation à l'Université Paris Nanterre</span>
       <h1>Planning d'occupation des salles</h1>
     </div>
-    <span id="status" class="status"><i></i><span id="statusText">Chargement…</span></span>
+    <div class="topright">
+      <a class="publink" id="pubLink" href="https://mobilisation-nanterre.github.io/planning/" target="_blank" rel="noopener" hidden>Page publique ↗</a>
+      <button type="button" class="btn" id="pubBtn" hidden>Mettre à jour la page publique</button>
+      <span id="status" class="status"><i></i><span id="statusText">Chargement…</span></span>
+    </div>
   </header>
 
   <div class="bar">
@@ -409,6 +415,8 @@ function setStatus(){
   if (state.dbState === "snapshot") {
     const t0 = SNAP && SNAP.genere ? new Date(SNAP.genere) : null;
     s.classList.add("ro");
+    nb.className = "notice"; nb.hidden = false;
+    nb.textContent = "Planning en consultation seule, mis à jour automatiquement toutes les heures, de 7h à 23h.";
     t.textContent = t0 && !isNaN(t0) ? `Consultation · mis à jour le ${t0.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})} à ${t0.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}).replace(":","h")}` : "Consultation";
     return;
   }
@@ -429,7 +437,7 @@ function closeSheet(){
 }
 function toast(msg){
   const t = $("toast"); t.textContent = msg; t.hidden = false;
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2600);
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, msg.length > 60 ? 6000 : 2600);
 }
 function timeOptions(sel, from, to){
   let h = ""; for (let m = from; m <= to; m += STEP) h += `<option value="${hhmm(m)}" ${hhmm(m) === sel ? "selected" : ""}>${lab(m)}</option>`; return h;
@@ -649,6 +657,29 @@ $("backdrop").addEventListener("click", closeSheet);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !sheetEl.hidden) closeSheet(); });
 setInterval(() => { if (sheetEl.hidden && (state.view === "semaine" || state.view === "jour")) render(); }, 5 * 60 * 1000);
 
+/* ---------- mise à jour de la page publique (propriétaire uniquement) ---------- */
+const PUBLISH_TASK = "trig_01D7x9E5ad8SVaUMk6VqL7Q6", REMOTE = "Claude Code Remote";
+async function setupPublishButton(){
+  const mcp = window.claude ? await window.claude.use("mcp") : null;
+  if (!mcp) return;
+  const b = $("pubBtn"); b.hidden = false;
+  b.addEventListener("click", async () => {
+    b.disabled = true; b.textContent = "Mise à jour lancée…";
+    try {
+      await mcp.callTool(REMOTE, "fire_trigger", {trigger_id: PUBLISH_TASK, text: "Mise à jour lancée depuis le bouton de la page de gestion."}, {cache: false});
+      toast("Mise à jour lancée : la page publique sera à jour d'ici deux à trois minutes.");
+    } catch (err) {
+      const c = err && err.code;
+      toast(c === "server_not_connected" || c === "needs_reauth" ? "Le connecteur « Claude Code Remote » n'est pas disponible : vérifiez-le dans les réglages de claude.ai."
+        : c === "approval_required" || c === "not_in_manifest" || c === "consent_required" ? "Lancement refusé : autorisez la page à utiliser « Claude Code Remote », puis recliquez."
+        : c === "tool_error" ? "La tâche de mise à jour a refusé le lancement. Réessayez dans quelques minutes."
+        : "La demande n'a peut-être pas abouti. Vérifiez l'heure de mise à jour sur la page publique avant de recliquer.");
+    } finally {
+      setTimeout(() => { b.disabled = false; b.textContent = "Mettre à jour la page publique"; }, 4000);
+    }
+  });
+}
+
 /* ---------- démarrage ---------- */
 function parseRoom(d){
   const x = d.data() || {}, n = String(x.nom || "").trim();
@@ -668,6 +699,8 @@ if (SNAP) {
   const c = window.claude;
   const [db, user] = await Promise.all([c ? c.use("db") : null, c ? c.use("user") : null]);
   state.user = user;
+  $("pubLink").hidden = false;
+  if (user && await user.isOwner()) setupPublishButton();
   if (!db) { state.dbState = "off"; setStatus(); render(); return; }
   state.db = db;
   if (user) {
