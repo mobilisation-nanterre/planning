@@ -256,12 +256,12 @@ const VIEWS = ["trois","cinq","semaine","jour","liste","salles"];
 const STEP_DAYS = {trois: 3, cinq: 7, semaine: 7, jour: 1};
 const todayISO = iso(new Date());
 const state = {
-  view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue") || "cinq"),
+  view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue3") || "trois"),
   date: parse(todayISO >= PERIOD.from && todayISO <= PERIOD.to ? todayISO : PERIOD.from),
   filter: store.get("ric.filter") || "all",
   items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
 };
-if (!VIEWS.includes(state.view)) state.view = "cinq";
+if (!VIEWS.includes(state.view)) state.view = "trois";
 
 /* ---------- filtre ---------- */
 function buildFilter(){
@@ -645,7 +645,7 @@ function writeError(err){
 /* ---------- événements ---------- */
 document.querySelector(".seg").addEventListener("click", e => {
   const b = e.target.closest("button[data-view]"); if (!b) return;
-  state.view = b.dataset.view; store.set("ric.vue", state.view); render();
+  state.view = b.dataset.view; store.set("ric.vue3", state.view); render();
 });
 $("prev").addEventListener("click", () => { state.date = addDays(state.date, -(STEP_DAYS[state.view] || 7)); render(); });
 $("next").addEventListener("click", () => { state.date = addDays(state.date, STEP_DAYS[state.view] || 7); render(); });
