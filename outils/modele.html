@@ -415,6 +415,8 @@ function setStatus(){
   if (state.dbState === "snapshot") {
     const t0 = SNAP && SNAP.genere ? new Date(SNAP.genere) : null;
     s.classList.add("ro");
+    nb.className = "notice"; nb.hidden = false;
+    nb.textContent = "Planning en consultation seule, mis à jour automatiquement toutes les heures, de 7h à 23h.";
     t.textContent = t0 && !isNaN(t0) ? `Consultation · mis à jour le ${t0.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})} à ${t0.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}).replace(":","h")}` : "Consultation";
     return;
   }
