@@ -417,7 +417,10 @@ function setStatus(){
     s.classList.add("ro");
     nb.className = "notice"; nb.hidden = false;
     nb.textContent = "Planning en consultation seule, mis à jour automatiquement toutes les heures, de 7h à 23h.";
-    t.textContent = t0 && !isNaN(t0) ? `Consultation · mis à jour le ${t0.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})} à ${t0.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}).replace(":","h")}` : "Consultation";
+    /* Les mises à jour automatiques partent à h55 : on affiche l'heure pile qu'elles préparent. Une mise à jour manuelle garde son heure réelle. */
+    const shown = t0 && !isNaN(t0) ? new Date(t0) : null;
+    if (shown && shown.getMinutes() >= 50) { shown.setHours(shown.getHours() + 1, 0, 0, 0); }
+    t.textContent = shown ? `Consultation · mis à jour le ${shown.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})} à ${shown.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}).replace(":","h")}` : "Consultation";
     return;
   }
   if (state.canWrite) { s.classList.add("ok"); t.textContent = "Vous pouvez réserver"; }
