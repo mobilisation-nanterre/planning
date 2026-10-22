@@ -157,6 +157,7 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
 
   <div class="bar">
     <div class="seg" role="group" aria-label="Vue">
+      <button type="button" id="v-cinq" data-view="cinq">5 jours</button>
       <button type="button" id="v-semaine" data-view="semaine">Semaine</button>
       <button type="button" id="v-jour" data-view="jour">Jour</button>
       <button type="button" id="v-liste" data-view="liste">Liste</button>
@@ -250,14 +251,15 @@ const store = {
   set(k,v){ try { localStorage.setItem(k,v); } catch {} }
 };
 
+const VIEWS = ["cinq","semaine","jour","liste","salles"];
 const todayISO = iso(new Date());
 const state = {
-  view: ["semaine","jour","liste","salles"].includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.view") || "semaine"),
+  view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue") || "cinq"),
   date: parse(todayISO >= PERIOD.from && todayISO <= PERIOD.to ? todayISO : PERIOD.from),
   filter: store.get("ric.filter") || "all",
   items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
 };
-if (!["semaine","jour","liste","salles"].includes(state.view)) state.view = "semaine";
+if (!VIEWS.includes(state.view)) state.view = "cinq";
 
 /* ---------- filtre ---------- */
 function buildFilter(){
@@ -345,10 +347,14 @@ function nowLine(dISO){
 }
 
 /* ---------- vues ---------- */
-function renderWeek(){
-  const mon = monday(state.date), days = [...Array(7)].map((_,i) => addDays(mon,i));
+/* Vue « 5 jours » : du lundi au vendredi (le week-end, on montre la semaine suivante). Vue « Semaine » : 7 jours. */
+function renderWeek(nDays = 7){
+  const wd = state.date.getDay();
+  const mon = nDays === 5 && (wd === 0 || wd === 6) ? addDays(monday(state.date), 7) : monday(state.date);
+  const days = [...Array(nDays)].map((_,i) => addDays(mon,i));
   const conf = conflictIds(), shown = active().filter(inFilter);
-  $("range").textContent = `Semaine du ${fDM.format(days[0])} au ${fDM.format(days[6])} ${days[6].getFullYear()}`;
+  const last = days[days.length - 1];
+  $("range").textContent = nDays === 5 ? `Du lundi ${fDM.format(days[0])} au vendredi ${fDM.format(last)} ${last.getFullYear()}` : `Semaine du ${fDM.format(days[0])} au ${fDM.format(last)} ${last.getFullYear()}`;
   let n = 0, head = `<div class="corner"></div>`, cols = "";
   for (const d of days) {
     const di = iso(d), we = d.getDay() === 0 || d.getDay() === 6, today = di === iso(new Date()), out = di < PERIOD.from || di > PERIOD.to;
@@ -356,8 +362,9 @@ function renderWeek(){
     const evs = lanes(shown.filter(i => i.date === di)); n += evs.length;
     cols += `<div class="col ${we?"we":""} ${today?"today":""} ${state.canWrite?"writable":""}" data-date="${di}">${nowLine(di)}${evs.map(e => block(e, conf, "semaine")).join("")}</div>`;
   }
-  $("count").textContent = n ? `${n} réservation${n>1?"s":""} cette semaine` : "Aucune réservation cette semaine";
-  return `<div class="scroller"><div class="cal" style="--cols:7;--colmin:150px">${head}${timeCol()}${cols}</div></div>`;
+  const span = nDays === 5 ? "du lundi au vendredi" : "cette semaine";
+  $("count").textContent = n ? `${n} réservation${n>1?"s":""} ${span}` : `Aucune réservation ${span}`;
+  return `<div class="scroller"><div class="cal" style="--cols:${nDays};--colmin:${nDays === 5 ? 190 : 150}px">${head}${timeCol()}${cols}</div></div>`;
 }
 function renderDay(){
   const di = iso(state.date), conf = conflictIds(), rooms = roomsShown();
@@ -407,11 +414,11 @@ function render(){
   $("pick").value = iso(state.date);
   $("addBtn").hidden = !state.canWrite || state.dbState !== "ok";
   $("addBtn").textContent = state.view === "salles" ? "+ Ajouter une salle" : "+ Réserver";
-  const nav = state.view === "semaine" || state.view === "jour";
+  const nav = state.view === "cinq" || state.view === "semaine" || state.view === "jour";
   for (const id of ["prev","next","todayBtn","pick"]) $(id).hidden = !nav;
   document.querySelector(".legend").hidden = state.view === "salles";
   const v = $("view");
-  v.innerHTML = state.view === "semaine" ? renderWeek() : state.view === "jour" ? renderDay() : state.view === "liste" ? renderList() : renderRooms();
+  v.innerHTML = state.view === "cinq" ? renderWeek(5) : state.view === "semaine" ? renderWeek(7) : state.view === "jour" ? renderDay() : state.view === "liste" ? renderList() : renderRooms();
 }
 function setStatus(){
   const s = $("status"), t = $("statusText"), nb = $("notice");
@@ -636,10 +643,10 @@ function writeError(err){
 /* ---------- événements ---------- */
 document.querySelector(".seg").addEventListener("click", e => {
   const b = e.target.closest("button[data-view]"); if (!b) return;
-  state.view = b.dataset.view; store.set("ric.view", state.view); render();
+  state.view = b.dataset.view; store.set("ric.vue", state.view); render();
 });
-$("prev").addEventListener("click", () => { state.date = addDays(state.date, state.view === "semaine" ? -7 : -1); render(); });
-$("next").addEventListener("click", () => { state.date = addDays(state.date, state.view === "semaine" ? 7 : 1); render(); });
+$("prev").addEventListener("click", () => { state.date = addDays(state.date, state.view === "jour" ? -1 : -7); render(); });
+$("next").addEventListener("click", () => { state.date = addDays(state.date, state.view === "jour" ? 1 : 7); render(); });
 $("todayBtn").addEventListener("click", () => { state.date = parse(iso(new Date())); render(); });
 $("pick").addEventListener("change", e => { if (e.target.value) { state.date = parse(e.target.value); render(); } });
 $("filter").addEventListener("change", e => { state.filter = e.target.value; store.set("ric.filter", state.filter); render(); });
@@ -669,7 +676,7 @@ sheetEl.addEventListener("click", e => {
 });
 $("backdrop").addEventListener("click", closeSheet);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !sheetEl.hidden) closeSheet(); });
-setInterval(() => { if (sheetEl.hidden && (state.view === "semaine" || state.view === "jour")) render(); }, 5 * 60 * 1000);
+setInterval(() => { if (sheetEl.hidden && ["cinq","semaine","jour"].includes(state.view)) render(); }, 5 * 60 * 1000);
 
 /* ---------- mise à jour de la page publique (propriétaire uniquement) ---------- */
 const PUBLISH_TASK = "trig_01D7x9E5ad8SVaUMk6VqL7Q6", REMOTE = "Claude Code Remote";
