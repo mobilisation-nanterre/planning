@@ -218,12 +218,14 @@ function indexRooms(){ ROOM_BY_ID = Object.fromEntries(ROOMS.map(r => [r.id, r])
 indexRooms();
 /* Une réservation désigne sa salle par son identifiant ; les plus anciennes, par nom (et bâtiment). */
 const roomOf = it => ROOM_BY_ID[it.salleId] || ROOMS.find(r => r.n === it.salle && (!it.batiment || r.b === it.batiment)) || null;
-const keyOf = it => { const r = roomOf(it); return r ? r.id : "?" + (it.batiment || "") + "|" + it.salle; };
+/* Une réservation peut ne pas avoir de salle : elle n'entre alors dans aucun conflit. */
+const hasRoom = it => !!(it.salleId || it.salle);
+const keyOf = it => { if (!hasRoom(it)) return ""; const r = roomOf(it); return r ? r.id : "?" + (it.batiment || "") + "|" + it.salle; };
 const nameOf = it => { const r = roomOf(it); return r ? r.n : it.salle; };
 const batOf = it => { const r = roomOf(it); return r ? r.b : (it.batiment || ""); };
 const place = (n, b) => `<span class="place"><span class="plate">${esc(n)}</span>${b ? `<span class="bat">${esc(b)}</span>` : ""}</span>`;
-const placeOf = it => place(nameOf(it), batOf(it));
-const placeText = it => `${nameOf(it)}${batOf(it) ? " (" + batOf(it) + ")" : ""}`;
+const placeOf = it => hasRoom(it) ? place(nameOf(it), batOf(it)) : `<span class="bat">Sans salle</span>`;
+const placeText = it => hasRoom(it) ? `${nameOf(it)}${batOf(it) ? " (" + batOf(it) + ")" : ""}` : "sans salle";
 const START = 8*60, END = 23*60, STEP = 30, NROWS = (END-START)/STEP;
 const PERIOD = {from:"2026-10-18", to:"2026-11-15"};
 
@@ -259,7 +261,7 @@ if (!["semaine","jour","liste","salles"].includes(state.view)) state.view = "sem
 
 /* ---------- filtre ---------- */
 function buildFilter(){
-  let h = `<option value="all">Toutes les salles</option>`;
+  let h = `<option value="all">Toutes les salles</option><option value="none">Événements sans salle</option>`;
   let lastB = null;
   for (const g of groups(ROOMS)) {
     if (g.b !== lastB) h += `<optgroup label="Bâtiment ${esc(g.b)}"><option value="bat:${esc(g.b)}">Tout le bâtiment ${esc(g.b)}</option></optgroup>`;
@@ -274,10 +276,11 @@ function buildFilter(){
   $("filter").value = state.filter;
 }
 const roomsShown = () => state.filter === "all" ? ROOMS
+  : state.filter === "none" ? []
   : state.filter.startsWith("bat:") ? ROOMS.filter(r => r.b === state.filter.slice(4))
   : state.filter.startsWith("floor:") ? (([b,e]) => ROOMS.filter(r => r.b === b && r.e === e))(state.filter.slice(6).split("|"))
   : ROOMS.filter(r => r.id === state.filter.slice(5));
-const inFilter = it => { if (state.filter === "all") return true; const ids = new Set(roomsShown().map(r => r.id)); return ids.has(keyOf(it)); };
+const inFilter = it => { if (state.filter === "all") return true; if (state.filter === "none") return !hasRoom(it); if (!hasRoom(it)) return false; const ids = new Set(roomsShown().map(r => r.id)); return ids.has(keyOf(it)); };
 
 /* ---------- données ---------- */
 function clean(d){
@@ -291,14 +294,15 @@ function clean(d){
 }
 const active = () => state.items.filter(i => i.statut !== "Annulée");
 function conflictsOf(rec, excludeId){
-  const k = rec.key || keyOf(rec);
+  const k = rec.key !== undefined ? rec.key : keyOf(rec);
+  if (!k) return [];
   return active().filter(o => o.id !== excludeId && keyOf(o) === k && o.date === rec.date && o.s < rec.e && rec.s < o.e);
 }
 function conflictIds(){
   const set = new Set(), act = active().map(a => ({...a, k: keyOf(a)}));
   for (let i = 0; i < act.length; i++) for (let j = i+1; j < act.length; j++) {
     const a = act[i], b = act[j];
-    if (a.k === b.k && a.date === b.date && a.s < b.e && b.s < a.e) { set.add(a.id); set.add(b.id); }
+    if (a.k && a.k === b.k && a.date === b.date && a.s < b.e && b.s < a.e) { set.add(a.id); set.add(b.id); }
   }
   return set;
 }
@@ -360,14 +364,22 @@ function renderDay(){
   const we = state.date.getDay() === 0 || state.date.getDay() === 6;
   $("range").textContent = cap1(fLong.format(state.date));
   let n = 0, head = `<div class="corner"></div>`, cols = "";
+  const loose = (state.filter === "all" || state.filter === "none") ? lanes(active().filter(i => i.date === di && !hasRoom(i))) : [];
+  const showLoose = loose.length > 0 || state.filter === "none";
+  if (showLoose) {
+    head += `<div class="dh room ${we?"we":""}"><span class="plate">Sans salle</span><span class="cap">Lieu non précisé</span></div>`;
+    n += loose.length;
+    cols += `<div class="col ${we?"we":""} ${state.canWrite?"writable":""}" data-date="${di}" data-room="">${nowLine(di)}${loose.map(e => block(e, conf, "jour")).join("")}</div>`;
+  }
   for (const r of rooms) {
     head += `<div class="dh room ${we?"we":""}"><span class="plate">${esc(r.n)}</span><span class="cap">${esc(r.b)} · ${esc(r.e)}${r.c ? ` · ${r.c} pl.` : ""}${r.u ? ` · ${esc(r.u)}` : ""}</span></div>`;
     const evs = lanes(active().filter(i => i.date === di && keyOf(i) === r.id)); n += evs.length;
     cols += `<div class="col ${we?"we":""} ${state.canWrite?"writable":""}" data-date="${di}" data-room="${esc(r.id)}">${nowLine(di)}${evs.map(e => block(e, conf, "jour")).join("")}</div>`;
   }
   const ids = new Set(rooms.map(r => r.id)), busy = new Set(active().filter(i => i.date === di && ids.has(keyOf(i))).map(keyOf)).size;
-  $("count").textContent = n ? `${n} réservation${n>1?"s":""} ce jour · ${rooms.length - busy} salle${rooms.length-busy>1?"s":""} libre${rooms.length-busy>1?"s":""} toute la journée` : "Aucune réservation ce jour : toutes les salles sont libres";
-  return `<div class="scroller"><div class="cal" style="--cols:${rooms.length};--colmin:118px">${head}${timeCol()}${cols}</div></div>`;
+  if (state.filter === "none") $("count").textContent = n ? `${n} événement${n>1?"s":""} sans salle ce jour` : "Aucun événement sans salle ce jour";
+  else $("count").textContent = n ? `${n} réservation${n>1?"s":""} ce jour · ${rooms.length - busy} salle${rooms.length-busy>1?"s":""} libre${rooms.length-busy>1?"s":""} toute la journée` : "Aucune réservation ce jour : toutes les salles sont libres";
+  return `<div class="scroller"><div class="cal" style="--cols:${rooms.length + (showLoose ? 1 : 0)};--colmin:118px">${head}${timeCol()}${cols}</div></div>`;
 }
 function renderList(){
   const conf = conflictIds();
@@ -379,7 +391,7 @@ function renderList(){
   return `<div class="tablewrap"><table><thead><tr><th>Date</th><th>Horaires</th><th>Salle</th><th>Bâtiment</th><th>Événement</th><th>Demandeur</th><th>Statut</th></tr></thead><tbody>${
     rows.map(r => `<tr class="${r.statut==="Annulée"?"cancel":""} ${conf.has(r.id)?"conf":""}">
       <td class="t">${esc(fShort.format(parse(r.date)).replace(".",""))}</td><td class="t">${lab(r.s)}–${lab(r.e)}</td>
-      <td><span class="plate">${esc(nameOf(r))}</span></td><td>${esc(batOf(r)) || "—"}</td>
+      <td>${hasRoom(r) ? `<span class="plate">${esc(nameOf(r))}</span>` : "—"}</td><td>${esc(batOf(r)) || "—"}</td>
       <td><button type="button" class="btn" style="padding:2px 8px" data-id="${esc(r.id)}">${esc(r.intitule)}</button></td>
       <td>${esc(r.demandeur)}</td>
       <td><span class="pill ${r.statut==="Demandée"?"req":""} ${conf.has(r.id)?"conf":""}">${conf.has(r.id) ? "Conflit" : esc(r.statut)}</span></td></tr>`).join("")
@@ -457,7 +469,7 @@ async function details(it){
     ${it.statut !== "Annulée" && conf.length ? `<div class="msg">Conflit : la salle est aussi réservée pour ${conf.map(c => `« ${esc(c.intitule)} » (${lab(c.s)}–${lab(c.e)})`).join(", ")}.</div>` : ""}
     <dl><dt>Date</dt><dd>${esc(cap1(fLong.format(parse(it.date))))}</dd>
     <dt>Horaires</dt><dd>${lab(it.s)} – ${lab(it.e)}</dd>
-    <dt>Salle</dt><dd><span class="plate">${esc(nameOf(it))}</span></dd>
+    <dt>Salle</dt><dd>${hasRoom(it) ? `<span class="plate">${esc(nameOf(it))}</span>` : "Non précisée"}</dd>
     <dt>Bâtiment</dt><dd>${esc(batOf(it)) || "—"}</dd>
     <dt>Demandeur</dt><dd>${esc(it.demandeur) || "—"}</dd>
     <dt>Statut</dt><dd>${esc(it.statut)}</dd>
@@ -471,7 +483,7 @@ function form(it, preset){
   openSheet(`<div class="head"><h2 id="sheetTitle">${it ? "Modifier la réservation" : "Nouvelle réservation"}</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
   <form id="resForm" novalidate>
     <label for="f-intitule">Intitulé de l'événement<input class="field" id="f-intitule" required maxlength="140" value="${esc(p.intitule || "")}" placeholder="Ex. Journée d'étude du laboratoire"></label>
-    <label for="f-salle">Salle<select class="field" id="f-salle" required>${ROOM_BY_ID[p.salleId] ? "" : `<option value="">Choisir une salle…</option>`}${roomOptions(p.salleId)}</select></label>
+    <label for="f-salle">Salle <span class="hint">facultatif</span><select class="field" id="f-salle"><option value="" ${ROOM_BY_ID[p.salleId] ? "" : "selected"}>Sans salle (lieu non précisé)</option>${roomOptions(p.salleId)}</select></label>
     <label for="f-date">Date<input class="field" type="date" id="f-date" required value="${esc(p.date || iso(state.date))}"></label>
     <div class="two">
       <label for="f-debut">Début<select class="field" id="f-debut">${timeOptions(s, START, END - STEP)}</select></label>
@@ -497,11 +509,10 @@ function form(it, preset){
     const rec = { intitule: $("f-intitule").value.trim(), salleId: room ? room.id : "", salle: room ? room.n : "", batiment: room ? room.b : "", date: $("f-date").value,
       debut: $("f-debut").value, fin: $("f-fin").value, demandeur: $("f-demandeur").value.trim(), statut: $("f-statut").value, remarques: $("f-remarques").value.trim() };
     if (!rec.intitule) return say("Indiquez l'intitulé de l'événement."), $("f-intitule").focus();
-    if (!rec.salle) return say("Choisissez une salle."), $("f-salle").focus();
     if (!rec.date) return say("Indiquez la date."), $("f-date").focus();
     const s2 = toMin(rec.debut), e2 = toMin(rec.fin);
     if (e2 <= s2) return say("L'heure de fin doit être après l'heure de début."), $("f-fin").focus();
-    if (rec.statut !== "Annulée") {
+    if (rec.statut !== "Annulée" && room) {
       const c = conflictsOf({...rec, key: room.id, s: s2, e: e2}, it && it.id);
       if (c.length && !force) {
         force = true; $("saveBtn").textContent = "Enregistrer malgré le conflit";
