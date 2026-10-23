@@ -128,6 +128,7 @@ tr.conf td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
 
 /* Panneau latéral */
 .backdrop{position:fixed;inset:0;background:rgba(10,16,24,.35);z-index:20}
+.sheet,.field{box-sizing:border-box}
 .sheet{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--surface);z-index:21;box-shadow:var(--shadow);display:flex;flex-direction:column;
   padding:calc(18px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) 20px;overflow-y:auto;gap:14px}
 .sheet h2{font-family:var(--f-display);font-size:20px;margin:0;text-wrap:balance}
@@ -142,6 +143,8 @@ label .hint{font-weight:400;color:var(--muted)}
 dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
 dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;z-index:30;font-size:14px}
+/* Sur téléphone, un champ en dessous de 16px déclenche le zoom automatique de Safari, qui décale le formulaire hors de l'écran. */
+@media (max-width:640px), (pointer:coarse){input.field,select.field,textarea.field,#filter,#pick{font-size:16px}}
 @media (max-width:640px){.range{flex-basis:100%;order:-1}.scroller{max-height:none}}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}}}
 </style>
