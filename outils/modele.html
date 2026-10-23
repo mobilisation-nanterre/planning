@@ -355,11 +355,11 @@ function nowLine(dISO){
 /* Vue « 3 jours » : le jour choisi et les deux suivants. Vue « 5 jours » : du lundi au vendredi (le week-end, on montre la semaine suivante). Vue « Semaine » : 7 jours. */
 function renderWeek(nDays = 7){
   const wd = state.date.getDay();
-  const mon = nDays === 3 ? state.date : nDays === 5 && (wd === 0 || wd === 6) ? addDays(monday(state.date), 7) : monday(state.date);
+  const mon = nDays === 3 || nDays === 1 ? state.date : nDays === 5 && (wd === 0 || wd === 6) ? addDays(monday(state.date), 7) : monday(state.date);
   const days = [...Array(nDays)].map((_,i) => addDays(mon,i));
   const conf = conflictIds(), shown = active().filter(inFilter);
   const last = days[days.length - 1];
-  $("range").textContent = nDays === 3 ? `Du ${fDow.format(days[0]).replace(".","")} ${fDM.format(days[0])} au ${fDow.format(last).replace(".","")} ${fDM.format(last)} ${last.getFullYear()}` : nDays === 5 ? `Du lundi ${fDM.format(days[0])} au vendredi ${fDM.format(last)} ${last.getFullYear()}` : `Semaine du ${fDM.format(days[0])} au ${fDM.format(last)} ${last.getFullYear()}`;
+  $("range").textContent = nDays === 1 ? cap1(fLong.format(days[0])) : nDays === 3 ? `Du ${fDow.format(days[0]).replace(".","")} ${fDM.format(days[0])} au ${fDow.format(last).replace(".","")} ${fDM.format(last)} ${last.getFullYear()}` : nDays === 5 ? `Du lundi ${fDM.format(days[0])} au vendredi ${fDM.format(last)} ${last.getFullYear()}` : `Semaine du ${fDM.format(days[0])} au ${fDM.format(last)} ${last.getFullYear()}`;
   let n = 0, head = `<div class="corner"></div>`, cols = "";
   for (const d of days) {
     const di = iso(d), we = d.getDay() === 0 || d.getDay() === 6, today = di === iso(new Date()), out = di < PERIOD.from || di > PERIOD.to;
@@ -367,9 +367,9 @@ function renderWeek(nDays = 7){
     const evs = lanes(shown.filter(i => i.date === di)); n += evs.length;
     cols += `<div class="col ${we?"we":""} ${today?"today":""} ${state.canWrite?"writable":""}" data-date="${di}">${nowLine(di)}${evs.map(e => block(e, conf, "semaine")).join("")}</div>`;
   }
-  const span = nDays === 3 ? "sur ces trois jours" : nDays === 5 ? "du lundi au vendredi" : "cette semaine";
+  const span = nDays === 1 ? "ce jour" : nDays === 3 ? "sur ces trois jours" : nDays === 5 ? "du lundi au vendredi" : "cette semaine";
   $("count").textContent = n ? `${n} réservation${n>1?"s":""} ${span}` : `Aucune réservation ${span}`;
-  return `<div class="scroller"><div class="cal" style="--cols:${nDays};--colmin:${nDays === 3 ? 240 : nDays === 5 ? 190 : 150}px">${head}${timeCol()}${cols}</div></div>`;
+  return `<div class="scroller"><div class="cal" style="--cols:${nDays};--colmin:${nDays === 1 ? 320 : nDays === 3 ? 240 : nDays === 5 ? 190 : 150}px">${head}${timeCol()}${cols}</div></div>`;
 }
 function renderDay(){
   const di = iso(state.date), conf = conflictIds(), rooms = roomsShown();
@@ -423,7 +423,7 @@ function render(){
   for (const id of ["prev","next","todayBtn","pick"]) $(id).hidden = !nav;
   document.querySelector(".legend").hidden = state.view === "salles";
   const v = $("view");
-  v.innerHTML = state.view === "trois" ? renderWeek(3) : state.view === "cinq" ? renderWeek(5) : state.view === "semaine" ? renderWeek(7) : state.view === "jour" ? renderDay() : state.view === "liste" ? renderList() : renderRooms();
+  v.innerHTML = state.view === "trois" ? renderWeek(3) : state.view === "cinq" ? renderWeek(5) : state.view === "semaine" ? renderWeek(7) : state.view === "jour" ? renderWeek(1) : state.view === "liste" ? renderList() : renderRooms();
 }
 function setStatus(){
   const s = $("status"), t = $("statusText"), nb = $("notice");
