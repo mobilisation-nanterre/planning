@@ -159,10 +159,10 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
 
   <div class="bar">
     <div class="seg" role="group" aria-label="Vue">
+      <button type="button" id="v-jour" data-view="jour">Jour</button>
       <button type="button" id="v-trois" data-view="trois">3 jours</button>
       <button type="button" id="v-cinq" data-view="cinq">5 jours</button>
       <button type="button" id="v-semaine" data-view="semaine">Semaine</button>
-      <button type="button" id="v-jour" data-view="jour">Jour</button>
       <button type="button" id="v-liste" data-view="liste">Liste</button>
       <button type="button" id="v-salles" data-view="salles">Salles</button>
     </div>
@@ -254,16 +254,16 @@ const store = {
   set(k,v){ try { localStorage.setItem(k,v); } catch {} }
 };
 
-const VIEWS = ["trois","cinq","semaine","jour","liste","salles"];
+const VIEWS = ["jour","trois","cinq","semaine","liste","salles"];
 const STEP_DAYS = {trois: 3, cinq: 7, semaine: 7, jour: 1};
 const todayISO = iso(new Date());
 const state = {
-  view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue3") || "trois"),
+  view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue4") || "jour"),
   date: parse(todayISO >= PERIOD.from && todayISO <= PERIOD.to ? todayISO : PERIOD.from),
   filter: store.get("ric.filter") || "all",
   items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
 };
-if (!VIEWS.includes(state.view)) state.view = "trois";
+if (!VIEWS.includes(state.view)) state.view = "jour";
 
 /* ---------- filtre ---------- */
 function buildFilter(){
@@ -648,7 +648,7 @@ function writeError(err){
 /* ---------- événements ---------- */
 document.querySelector(".seg").addEventListener("click", e => {
   const b = e.target.closest("button[data-view]"); if (!b) return;
-  state.view = b.dataset.view; store.set("ric.vue3", state.view); render();
+  state.view = b.dataset.view; store.set("ric.vue4", state.view); render();
 });
 $("prev").addEventListener("click", () => { state.date = addDays(state.date, -(STEP_DAYS[state.view] || 7)); render(); });
 $("next").addEventListener("click", () => { state.date = addDays(state.date, STEP_DAYS[state.view] || 7); render(); });
