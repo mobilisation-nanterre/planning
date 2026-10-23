@@ -46,7 +46,8 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);m
 /* Barre d'outils */
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--surface)}
-.seg button{border:0;background:none;padding:7px 14px;cursor:pointer;color:var(--muted)}
+.seg button{border:0;background:none;padding:7px 14px;cursor:pointer;color:var(--muted);white-space:nowrap}
+@media (max-width:640px){.seg{max-width:100%;overflow-x:auto;scrollbar-width:none}.seg button{padding:7px 10px}}
 .seg button+button{border-left:1px solid var(--line-strong)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:600}
 .nav{display:inline-flex;align-items:center;gap:6px}
@@ -125,6 +126,19 @@ tr.conf td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
 .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line-strong);white-space:nowrap}
 .pill.req{border-style:dashed}.pill.conf{border-color:var(--warn);color:var(--warn)}
 .empty{padding:28px 16px;text-align:center;color:var(--muted)}
+/* Vue Jour sur téléphone : liste chronologique */
+.agenda{display:flex;flex-direction:column;gap:8px}
+.ag-item{display:grid;grid-template-columns:58px 1fr;gap:10px;width:100%;background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit}
+.ag-time{font-family:var(--f-mono);font-size:12px;color:var(--muted);text-align:right;padding-top:9px;line-height:1.5;font-variant-numeric:tabular-nums}
+.ag-time b{color:var(--ink);font-weight:500}
+.ag-card{border-left:3px solid var(--block-edge);background:var(--block);color:var(--block-ink);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.ag-card .ev-title{font-size:15px}
+.ag-card .ev-who{font-size:13px}
+.ag-item.req .ag-card{background:repeating-linear-gradient(135deg,var(--surface) 0 6px,var(--hatch) 6px 12px);color:var(--ink);font-style:italic}
+.ag-item.conf .ag-card{border-left-color:var(--warn);background:var(--warn-bg);color:var(--ink)}
+.ag-item.past{opacity:.45}
+.ag-now{align-self:flex-start;font-size:11px;font-weight:600;background:var(--warn);color:var(--surface);border-radius:999px;padding:1px 8px;font-style:normal}
+.ag-empty{background:var(--surface);border:1px solid var(--line-strong);border-radius:10px}
 
 /* Panneau latéral */
 .backdrop{position:fixed;inset:0;background:rgba(10,16,24,.35);z-index:20}
@@ -358,7 +372,30 @@ function nowLine(dISO){
 
 /* ---------- vues ---------- */
 /* Vue « 3 jours » : le jour choisi et les deux suivants. Vue « 5 jours » : du lundi au vendredi (le week-end, on montre la semaine suivante). Vue « Semaine » : 7 jours. */
+/* Sur petit écran, la vue Jour devient une liste chronologique, plus lisible qu'une grille serrée. */
+const narrow = () => { try { return window.matchMedia("(max-width: 700px)").matches; } catch { return false; } };
+function renderAgenda(){
+  const di = iso(state.date), conf = conflictIds(), now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes(), isToday = di === iso(now);
+  const evs = active().filter(i => i.date === di && inFilter(i)).sort((a,b) => a.s - b.s || a.e - b.e);
+  $("range").textContent = cap1(fLong.format(state.date));
+  $("count").textContent = evs.length ? `${evs.length} réservation${evs.length>1?"s":""} ce jour` : "Aucune réservation ce jour";
+  if (!evs.length) return `<div class="ag-empty"><div class="empty">${state.dbState === "off" ? emptyText() : "Aucun événement ce jour." + (state.canWrite ? " Utilisez « + Réserver » pour en ajouter un." : "")}</div></div>`;
+  return `<div class="agenda">${evs.map(ev => {
+    const live = isToday && ev.s <= nowMin && nowMin < ev.e;
+    const cls = ["ag-item", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : "", isPast(ev) ? "past" : ""].join(" ");
+    return `<button type="button" class="${cls}" data-id="${esc(ev.id)}">
+      <span class="ag-time"><b>${lab(ev.s)}</b><br>${lab(ev.e)}</span>
+      <span class="ag-card">
+        ${live ? `<span class="ag-now">En cours</span>` : ""}
+        <span class="ev-title">${esc(ev.intitule)}</span>
+        ${ev.demandeur ? `<span class="ev-who">${esc(ev.demandeur)}</span>` : ""}
+        <span class="ev-meta">${placeOf(ev)}${ev.statut === "Demandée" ? `<span>Demandée</span>` : ""}${conf.has(ev.id) ? `<span>Conflit de salle</span>` : ""}</span>
+      </span></button>`;
+  }).join("")}</div>`;
+}
 function renderWeek(nDays = 7){
+  if (nDays === 1 && narrow()) return renderAgenda();
   const wd = state.date.getDay();
   const mon = nDays === 3 || nDays === 1 ? state.date : nDays === 5 && (wd === 0 || wd === 6) ? addDays(monday(state.date), 7) : monday(state.date);
   const days = [...Array(nDays)].map((_,i) => addDays(mon,i));
@@ -692,6 +729,8 @@ sheetEl.addEventListener("click", e => {
 $("backdrop").addEventListener("click", closeSheet);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !sheetEl.hidden) closeSheet(); });
 setInterval(() => { if (sheetEl.hidden && state.view in STEP_DAYS) render(); }, 5 * 60 * 1000);
+let wasNarrow = narrow();
+window.addEventListener("resize", () => { const n = narrow(); if (n !== wasNarrow) { wasNarrow = n; if (state.view === "jour" && sheetEl.hidden) render(); } });
 
 /* ---------- mise à jour de la page publique (propriétaire uniquement) ---------- */
 const PUBLISH_TASK = "trig_01D7x9E5ad8SVaUMk6VqL7Q6", REMOTE = "Claude Code Remote";
