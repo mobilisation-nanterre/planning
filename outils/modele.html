@@ -119,6 +119,8 @@ td.t{font-family:var(--f-mono);font-size:12px;white-space:nowrap;font-variant-nu
 th.grp{position:static;background:var(--bg);color:var(--ink);font-family:var(--f-display);font-size:13px;letter-spacing:.04em}
 table.rooms{min-width:620px}
 tr.cancel td{color:var(--muted);text-decoration:line-through}
+tr.past td{opacity:.45}
+tr.past:hover td{opacity:.8}
 tr.conf td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
 .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line-strong);white-space:nowrap}
 .pill.req{border-style:dashed}.pill.conf{border-color:var(--warn);color:var(--warn)}
@@ -401,13 +403,18 @@ function renderList(){
   $("count").textContent = rows.length ? `${nAct} réservation${nAct>1?"s":""} active${nAct>1?"s":""}${rows.length - nAct ? ` · ${rows.length - nAct} annulée${rows.length-nAct>1?"s":""}` : ""}` : "Aucune réservation";
   if (!rows.length) return `<div class="tablewrap"><div class="empty">${emptyText()}</div></div>`;
   return `<div class="tablewrap"><table><thead><tr><th>Date</th><th>Horaires</th><th>Salle</th><th>Bâtiment</th><th>Événement</th><th>Intervenant-e</th><th>Statut</th></tr></thead><tbody>${
-    rows.map(r => `<tr class="${r.statut==="Annulée"?"cancel":""} ${conf.has(r.id)?"conf":""}">
+    rows.map(r => `<tr class="${r.statut==="Annulée"?"cancel":""} ${conf.has(r.id)?"conf":""} ${isPast(r)?"past":""}">
       <td class="t">${esc(fShort.format(parse(r.date)).replace(".",""))}</td><td class="t">${lab(r.s)}–${lab(r.e)}</td>
       <td>${hasRoom(r) ? `<span class="plate">${esc(nameOf(r))}</span>` : "—"}</td><td>${esc(batOf(r)) || "—"}</td>
       <td><button type="button" class="btn" style="padding:2px 8px" data-id="${esc(r.id)}">${esc(r.intitule)}</button></td>
       <td>${esc(r.demandeur)}</td>
       <td><span class="pill ${r.statut==="Demandée"?"req":""} ${conf.has(r.id)?"conf":""}">${conf.has(r.id) ? "Conflit" : esc(r.statut)}</span></td></tr>`).join("")
   }</tbody></table></div>`;
+}
+/* Un événement est passé quand son heure de fin est dépassée. */
+function isPast(it){
+  const now = new Date(), today = iso(now);
+  return it.date < today || (it.date === today && it.e <= now.getHours() * 60 + now.getMinutes());
 }
 function emptyText(){
   if (state.dbState === "off") return "Les réservations ne sont visibles qu'une fois connecté à Claude.";
