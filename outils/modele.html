@@ -591,7 +591,7 @@ function form(it, preset){
   if (del) del.addEventListener("click", async () => {
     if (!armedDel) { armedDel = true; del.classList.add("armed"); del.textContent = "Confirmer la suppression"; return; }
     del.disabled = true;
-    try { await state.db.doc("reservations/" + it.id).delete(); closeSheet(); toast("Réservation supprimée"); }
+    try { await state.db.doc("reservations/" + it.id).delete(); await markDeleted("reservation", it.id); closeSheet(); toast("Réservation supprimée"); }
     catch (err) { del.disabled = false; say(writeError(err)); }
   });
 }
@@ -649,12 +649,12 @@ function roomForm(room){
     $("roomSave").disabled = true;
     try {
       await ensureRoomsInDb();
-      const body = {nom, batiment, etage, capacite, usage};
+      const body = {nom, batiment, etage, capacite, usage, modifieLe: new Date().toISOString()};
       if (room) {
         const linked = state.items.filter(i => keyOf(i) === room.id);
         await state.db.doc("salles/" + room.id).set(body);
         if (room.n !== nom || room.b !== batiment || linked.some(i => i.salleId !== room.id))
-          for (const it of linked) await state.db.doc("reservations/" + it.id).update({salleId: room.id, salle: nom, batiment});
+          for (const it of linked) await state.db.doc("reservations/" + it.id).update({salleId: room.id, salle: nom, batiment, modifieLe: new Date().toISOString()});
       } else await state.db.collection("salles").add(body);
       closeSheet(); toast(room ? "Salle modifiée" : "Salle ajoutée");
     } catch (err) { $("roomSave").disabled = false; say(writeError(err)); }
@@ -670,6 +670,7 @@ function roomForm(room){
     try {
       await ensureRoomsInDb();
       await state.db.doc("salles/" + room.id).delete();
+      await markDeleted("salle", room.id);
       if (state.filter === "room:" + room.id) { state.filter = "all"; store.set("ric.filter", "all"); }
       closeSheet(); toast("Salle supprimée");
     } catch (err) { del.disabled = false; say(writeError(err)); }
@@ -684,6 +685,10 @@ async function ensureRoomsInDb(){
   ROOMS = sortRooms(DEFAULT_ROOMS); roomsFromDb = true;
 }
 
+/* Trace des suppressions, lue par la mise à jour de la page publique (qui ne relit que les changements). */
+async function markDeleted(type, id){
+  try { await state.db.doc("suppressions/" + id).set({type, at: new Date().toISOString()}); } catch {}
+}
 function writeError(err){
   const code = err && err.code;
   if (code === "invalid_argument") { state.canWrite = false; setStatus(); render(); return "Vous n'avez pas le droit de modifier ce planning. Demandez au propriétaire de vous inviter avec le droit « Peut modifier »."; }
