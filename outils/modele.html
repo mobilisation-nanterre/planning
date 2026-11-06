@@ -60,6 +60,13 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);m
 .field{border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:6px 10px;min-width:0}
 .range{font-family:var(--f-display);font-weight:600;font-size:17px;min-width:0}
 .spacer{flex:1 1 auto}
+.search{flex:0 1 230px;min-width:150px}
+.sr-head{margin:4px 0 0;font-size:14px;color:var(--muted)}
+.sr-day{margin:20px 0 8px;font-family:var(--f-display);font-size:14px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.sr-sep{margin:30px 0 0;padding-top:14px;border-top:1px solid var(--line-strong);font-family:var(--f-display);font-size:15px;font-weight:600}
+.sr-rem{font-size:13px;color:inherit;opacity:.85;overflow-wrap:anywhere}
+.sr-rem mark,.ag-card mark{background:color-mix(in srgb,#f5c400 45%,transparent);color:inherit;border-radius:3px;padding:0 1px}
+@media (max-width:640px){.search{flex:1 1 100%}}
 
 .summary{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:13px;color:var(--muted)}
 .legend{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
@@ -222,6 +229,7 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
     </div>
     <span class="range" id="range"></span>
     <span class="spacer"></span>
+    <input type="search" class="field search" id="q" placeholder="Rechercher…" aria-label="Rechercher un événement, une personne, une salle" autocomplete="off">
     <select class="field" id="filter" aria-label="Filtrer les salles"></select>
     <button type="button" class="btn primary" id="addBtn" hidden>+ Réserver</button>
   </div>
@@ -309,7 +317,7 @@ const state = {
   view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue4") || "jour"),
   date: parse(todayISO >= PERIOD.from && todayISO <= PERIOD.to ? todayISO : PERIOD.from),
   filter: store.get("ric.filter") || "all",
-  items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
+  q: "", items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
 };
 if (!VIEWS.includes(state.view)) state.view = "jour";
 
@@ -511,6 +519,46 @@ function renderList(){
       <td><span class="pill ${r.statut==="Demandée"?"req":""} ${conf.has(r.id)?"conf":""}">${conf.has(r.id) ? "Conflit" : esc(r.statut)}</span></td></tr>`).join("")
   }</tbody></table></div>`;
 }
+/* Recherche : tous les mots tapés doivent apparaître (sans tenir compte des accents ni des majuscules)
+   dans l'intitulé, l'intervenant-e, la salle, le bâtiment ou les remarques. Elle porte sur tout le planning. */
+const fold = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+function hilite(text, words){
+  const t = String(text || ""), f = fold(t);
+  if (f.length !== t.length || !words.length) return esc(t);
+  const marks = new Array(t.length).fill(false);
+  for (const w of words) { let i = f.indexOf(w); while (i >= 0) { for (let k = i; k < i + w.length; k++) marks[k] = true; i = f.indexOf(w, i + w.length); } }
+  let out = "", open = false;
+  for (let k = 0; k < t.length; k++) { if (marks[k] !== open) { out += marks[k] ? "<mark>" : "</mark>"; open = marks[k]; } out += esc(t[k]); }
+  return out + (open ? "</mark>" : "");
+}
+function renderSearch(){
+  const words = fold(state.q).split(/\s+/).filter(Boolean), conf = conflictIds();
+  const hay = it => fold([it.intitule, it.demandeur, nameOf(it), batOf(it), it.remarques].join(" "));
+  const hits = active().filter(it => { const h = hay(it); return words.every(w => h.includes(w)); });
+  const coming = hits.filter(i => !isPast(i)).sort((a,b) => a.date.localeCompare(b.date) || a.s - b.s);
+  const past = hits.filter(isPast).sort((a,b) => b.date.localeCompare(a.date) || b.s - a.s);
+  $("range").textContent = `Recherche : « ${state.q.trim()} »`;
+  $("count").textContent = hits.length ? `${coming.length} à venir · ${past.length} passé${past.length>1?"s":""}` : "Aucun résultat";
+  if (!hits.length) return `<div class="ag-empty"><div class="empty">Aucun événement ne correspond à « ${esc(state.q.trim())} ». Essayez un autre mot, ou effacez la recherche pour revenir au planning.</div></div>`;
+  const item = ev => {
+    const cls = ["ag-item", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : "", isPast(ev) ? "past" : ""].join(" ");
+    const remHit = ev.remarques && words.some(w => fold(ev.remarques).includes(w));
+    return `<button type="button" class="${cls}" data-id="${esc(ev.id)}">
+      <span class="ag-time"><b>${lab(ev.s)}</b><br>${lab(ev.e)}</span>
+      <span class="ag-card">
+        <span class="ev-title">${hilite(ev.intitule, words)}</span>
+        ${ev.demandeur ? `<span class="ev-who">${hilite(ev.demandeur, words)}</span>` : ""}
+        <span class="ev-meta">${hasRoom(ev) ? `<span>${hilite(nameOf(ev), words)}</span>${batOf(ev) ? `<span>${hilite(batOf(ev), words)}</span>` : ""}` : `<span>Sans salle</span>`}${ev.statut === "Demandée" ? `<span>Demandée</span>` : ""}${conf.has(ev.id) ? `<span>Conflit de salle</span>` : ""}</span>
+        ${remHit ? `<span class="sr-rem">${hilite(ev.remarques.length > 160 ? ev.remarques.slice(0, 160) + "…" : ev.remarques, words)}</span>` : ""}
+      </span></button>`;
+  };
+  const byDay = list => { let h = "", d = null, buf = []; const flush = () => { if (buf.length) h += `<h2 class="sr-day">${esc(cap1(fLong.format(parse(d))))}</h2><div class="agenda">${buf.join("")}</div>`; buf = []; };
+    for (const ev of list) { if (ev.date !== d) { flush(); d = ev.date; } buf.push(item(ev)); } flush(); return h; };
+  let html = `<div class="search-res">`;
+  html += coming.length ? byDay(coming) : `<p class="sr-head">Aucun événement à venir ne correspond.</p>`;
+  if (past.length) html += `<h2 class="sr-sep">Déjà passés</h2>` + byDay(past);
+  return html + `</div>`;
+}
 /* Un événement est passé quand son heure de fin est dépassée. */
 function isPast(it){
   const now = new Date(), today = iso(now);
@@ -522,14 +570,15 @@ function emptyText(){
 }
 
 function render(){
-  for (const b of document.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.view === state.view));
+  for (const b of document.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(!state.q && b.dataset.view === state.view));
   $("pick").value = iso(state.date);
   $("addBtn").hidden = !state.canWrite || state.dbState !== "ok";
   $("addBtn").textContent = state.view === "salles" ? "+ Ajouter une salle" : "+ Réserver";
-  const nav = state.view in STEP_DAYS;
+  const nav = !state.q && state.view in STEP_DAYS;
   for (const id of ["prev","next","todayBtn","pick"]) $(id).hidden = !nav;
   document.querySelector(".legend").hidden = state.view === "salles";
   const v = $("view");
+  if (state.q) { document.querySelector(".legend").hidden = false; v.innerHTML = renderSearch(); return; }
   v.innerHTML = state.view === "maintenant" ? renderNow() : state.view === "trois" ? renderWeek(3) : state.view === "cinq" ? renderWeek(5) : state.view === "semaine" ? renderWeek(7) : state.view === "jour" ? renderWeek(1) : state.view === "liste" ? renderList() : renderRooms();
 }
 function setStatus(){
@@ -791,12 +840,15 @@ function writeError(err){
 /* ---------- événements ---------- */
 document.querySelector(".seg").addEventListener("click", e => {
   const b = e.target.closest("button[data-view]"); if (!b) return;
-  state.view = b.dataset.view; store.set("ric.vue4", state.view); render();
+  state.view = b.dataset.view; store.set("ric.vue4", state.view); if (state.q) { state.q = ""; $("q").value = ""; } render();
 });
 $("prev").addEventListener("click", () => { state.date = addDays(state.date, -(STEP_DAYS[state.view] || 7)); render(); });
 $("next").addEventListener("click", () => { state.date = addDays(state.date, STEP_DAYS[state.view] || 7); render(); });
 $("todayBtn").addEventListener("click", () => { state.date = parse(iso(new Date())); render(); });
 $("pick").addEventListener("change", e => { if (e.target.value) { state.date = parse(e.target.value); render(); } });
+let qTimer = null;
+$("q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value.trim() ? e.target.value : ""; render(); }, 150); });
+$("q").addEventListener("keydown", e => { if (e.key === "Escape" && e.target.value) { e.target.value = ""; state.q = ""; render(); } });
 $("filter").addEventListener("change", e => { state.filter = e.target.value; store.set("ric.filter", state.filter); render(); });
 $("addBtn").addEventListener("click", () => {
   if (state.view === "salles") return roomForm(null);
