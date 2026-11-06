@@ -1,4 +1,4 @@
-<title>Planning d'occupation des salles – Mobilisation Paris Nanterre</title>
+<title>Planning Université ouverte Nanterre</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -152,6 +152,7 @@ label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600}
 label .hint{font-weight:400;color:var(--muted)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .two>*{min-width:0}
+option.busy{color:var(--warn);background:var(--warn-bg)}
 .msg{font-size:14px;border-radius:8px;padding:9px 11px;background:var(--warn-bg);border:1px solid var(--warn)}
 .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
@@ -518,7 +519,28 @@ function timeOptions(sel, from, to){
 }
 function roomOptions(sel){
   return groups(ROOMS).map(g => `<optgroup label="${esc(g.label)}">${g.rooms.map(r =>
-    `<option value="${esc(r.id)}" ${r.id === sel ? "selected" : ""}>${esc(r.n)}${r.c ? ` (${r.c} pl.)` : ""}</option>`).join("")}</optgroup>`).join("");
+    `<option value="${esc(r.id)}" data-label="${esc(r.n)}${r.c ? ` (${r.c} pl.)` : ""}" ${r.id === sel ? "selected" : ""}>${esc(r.n)}${r.c ? ` (${r.c} pl.)` : ""}</option>`).join("")}</optgroup>`).join("");
+}
+/* Dans le formulaire, signale les salles déjà prises sur la date et les horaires choisis
+   (couleur là où le navigateur l'affiche, et mention écrite partout, téléphones compris). */
+function markBusyRooms(excludeId){
+  const sel = $("f-salle"); if (!sel) return;
+  const date = $("f-date").value, s0 = toMin($("f-debut").value), e0 = toMin($("f-fin").value);
+  let nBusy = 0;
+  for (const o of sel.options) {
+    if (!o.value) continue;
+    const base = o.dataset.label || o.textContent;
+    let busy = [];
+    if (date && e0 > s0) {
+      const rec = {date, s: s0, e: e0, salleId: o.value, salle: (ROOM_BY_ID[o.value] || {}).n || "", batiment: (ROOM_BY_ID[o.value] || {}).b || ""};
+      busy = conflictsOf({...rec, key: o.value}, excludeId).map(x => `${lab(x.s)}–${lab(x.e)}`);
+    }
+    o.textContent = busy.length ? `${base} — occupée ${busy.join(", ")}` : base;
+    o.classList.toggle("busy", busy.length > 0);
+    if (busy.length) nBusy++;
+  }
+  const h = $("f-salle-hint");
+  if (h) h.textContent = date && e0 > s0 ? (nBusy ? `${nBusy} salle${nBusy>1?"s":""} déjà occupée${nBusy>1?"s":""} sur ce créneau (signalée${nBusy>1?"s":""} dans la liste)` : "Toutes les salles sont libres sur ce créneau") : "";
 }
 async function details(it){
   let who = "";
@@ -542,7 +564,7 @@ function form(it, preset){
   openSheet(`<div class="head"><h2 id="sheetTitle">${it ? "Modifier la réservation" : "Nouvelle réservation"}</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
   <form id="resForm" novalidate>
     <label for="f-intitule">Intitulé de l'événement<input class="field" id="f-intitule" required maxlength="140" value="${esc(p.intitule || "")}" placeholder="Ex. Journée d'étude du laboratoire"></label>
-    <label for="f-salle">Salle <span class="hint">facultatif</span><select class="field" id="f-salle"><option value="" ${ROOM_BY_ID[p.salleId] ? "" : "selected"}>Sans salle (lieu non précisé)</option>${roomOptions(p.salleId)}</select></label>
+    <label for="f-salle">Salle <span class="hint">facultatif · <span id="f-salle-hint"></span></span><select class="field" id="f-salle"><option value="" ${ROOM_BY_ID[p.salleId] ? "" : "selected"}>Sans salle (lieu non précisé)</option>${roomOptions(p.salleId)}</select></label>
     <label for="f-date">Date<input class="field" type="date" id="f-date" required value="${esc(p.date || iso(state.date))}"></label>
     <div class="two">
       <label for="f-debut">Début<select class="field" id="f-debut">${timeOptions(s, START, END - STEP)}</select></label>
@@ -560,6 +582,8 @@ function form(it, preset){
     </div>
   </form>`);
   const fm = $("resForm"); let force = false, armedDel = false;
+  markBusyRooms(it && it.id);
+  for (const id of ["f-date","f-debut","f-fin"]) $(id).addEventListener("change", () => markBusyRooms(it && it.id));
   const say = (html) => { const m = $("formMsg"); m.className = "msg"; m.innerHTML = html; m.hidden = !html; };
   fm.addEventListener("input", () => { if (force) { force = false; $("saveBtn").textContent = "Enregistrer"; say(""); } });
   fm.addEventListener("submit", async ev => {
