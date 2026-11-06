@@ -584,6 +584,14 @@ function form(it, preset){
   const fm = $("resForm"); let force = false, armedDel = false;
   markBusyRooms(it && it.id);
   for (const id of ["f-date","f-debut","f-fin"]) $(id).addEventListener("change", () => markBusyRooms(it && it.id));
+  /* Changer l'heure de début décale l'heure de fin en gardant la même durée (sans dépasser 23h). */
+  let prevDebut = toMin($("f-debut").value);
+  $("f-debut").addEventListener("change", () => {
+    const s1 = toMin($("f-debut").value), dur = Math.max(STEP, toMin($("f-fin").value) - prevDebut);
+    $("f-fin").value = hhmm(Math.min(END, s1 + dur));
+    prevDebut = s1;
+    markBusyRooms(it && it.id);
+  });
   const say = (html) => { const m = $("formMsg"); m.className = "msg"; m.innerHTML = html; m.hidden = !html; };
   fm.addEventListener("input", () => { if (force) { force = false; $("saveBtn").textContent = "Enregistrer"; say(""); } });
   fm.addEventListener("submit", async ev => {
