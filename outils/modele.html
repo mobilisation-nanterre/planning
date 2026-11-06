@@ -139,6 +139,33 @@ tr.conf td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
 .ag-item.past{opacity:.45}
 .ag-now{align-self:flex-start;font-size:11px;font-weight:600;background:var(--warn);color:var(--surface);border-radius:999px;padding:1px 8px;font-style:normal}
 .ag-empty{background:var(--surface);border:1px solid var(--line-strong);border-radius:10px}
+/* Vue « Maintenant » */
+.now-wrap{display:flex;flex-direction:column;gap:20px}
+.now-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
+.now-clock{font-family:var(--f-display);font-weight:700;font-size:clamp(30px,6vw,48px);line-height:1;font-variant-numeric:tabular-nums}
+.now-sec{display:flex;flex-direction:column;gap:10px}
+.now-sec h2{margin:0;font-family:var(--f-display);font-size:14px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.now-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));gap:10px}
+.now-card{display:flex;flex-direction:column;gap:6px;min-width:0;text-align:left;cursor:pointer;border:0;border-left:4px solid var(--block-edge);border-radius:8px;padding:12px 14px;background:var(--block);color:var(--block-ink)}
+.now-card .t{font-family:var(--f-display);font-weight:700;font-size:18px;line-height:1.25;overflow-wrap:break-word}
+.now-card .who{font-weight:600;font-size:14px}
+.now-card .when{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.now-card .rel{font-size:13px;font-weight:600}
+.now-card.soon{background:var(--surface);border:1px solid var(--line-strong);border-left:4px solid var(--block-edge);color:var(--ink)}
+.now-card.req{background:repeating-linear-gradient(135deg,var(--surface) 0 6px,var(--hatch) 6px 12px);color:var(--ink);font-style:italic}
+.now-card.conf{border-left-color:var(--warn);background:var(--warn-bg);color:var(--ink)}
+.now-card .ag-now{align-self:flex-start}
+.now-later{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;overflow:hidden}
+.now-row{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:baseline;padding:8px 12px;border:0;border-top:1px solid var(--line);background:none;text-align:left;cursor:pointer;color:inherit;width:100%}
+.now-row:first-child{border-top:0}
+.now-row .when{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.now-row .what{min-width:0;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.now-row .what b{font-weight:600}
+.now-empty{background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;padding:18px 16px;color:var(--muted)}
+#view:fullscreen{background:var(--bg);padding:28px 36px;overflow:auto}
+#view:fullscreen .now-card .t{font-size:24px}
+#view:fullscreen .now-card .who,#view:fullscreen .now-card .when,#view:fullscreen .now-card .rel{font-size:16px}
+#view:fullscreen .now-row{font-size:17px}
 
 /* Panneau latéral */
 .backdrop{position:fixed;inset:0;background:rgba(10,16,24,.35);z-index:20}
@@ -179,6 +206,7 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
 
   <div class="bar">
     <div class="seg" role="group" aria-label="Vue">
+      <button type="button" id="v-maintenant" data-view="maintenant">Maintenant</button>
       <button type="button" id="v-jour" data-view="jour">Jour</button>
       <button type="button" id="v-trois" data-view="trois">3 jours</button>
       <button type="button" id="v-cinq" data-view="cinq">5 jours</button>
@@ -274,7 +302,7 @@ const store = {
   set(k,v){ try { localStorage.setItem(k,v); } catch {} }
 };
 
-const VIEWS = ["jour","trois","cinq","semaine","liste","salles"];
+const VIEWS = ["maintenant","jour","trois","cinq","semaine","liste","salles"];
 const STEP_DAYS = {trois: 3, cinq: 7, semaine: 7, jour: 1};
 const todayISO = iso(new Date());
 const state = {
@@ -375,6 +403,37 @@ function nowLine(dISO){
 /* Vue « 3 jours » : le jour choisi et les deux suivants. Vue « 5 jours » : du lundi au vendredi (le week-end, on montre la semaine suivante). Vue « Semaine » : 7 jours. */
 /* Sur petit écran, la vue Jour devient une liste chronologique, plus lisible qu'une grille serrée. */
 const narrow = () => { try { return window.matchMedia("(max-width: 700px)").matches; } catch { return false; } };
+/* Vue « Maintenant » : ce qui se passe, ce qui arrive dans les deux heures, puis le reste de la journée. */
+function renderNow(){
+  const now = new Date(), di = iso(now), m = now.getHours() * 60 + now.getMinutes(), conf = conflictIds();
+  const today = active().filter(i => i.date === di && inFilter(i)).sort((a,b) => a.s - b.s || a.e - b.e);
+  const live = today.filter(i => i.s <= m && m < i.e), soon = today.filter(i => i.s > m && i.s <= m + 120), later = today.filter(i => i.s > m + 120);
+  const rel = n => n < 60 ? `${n} min` : `${Math.floor(n / 60)} h${n % 60 ? " " + pad(n % 60) : ""}`;
+  $("range").textContent = cap1(fLong.format(now));
+  $("count").textContent = `${live.length} en cours · ${soon.length} dans les deux prochaines heures · ${later.length} plus tard aujourd'hui`;
+  const card = (ev, kind) => {
+    const cls = ["now-card", kind === "soon" ? "soon" : "", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : ""].join(" ");
+    return `<button type="button" class="${cls}" data-id="${esc(ev.id)}">
+      ${kind === "live" ? `<span class="ag-now">En cours</span>` : ""}
+      <span class="t">${esc(ev.intitule)}</span>
+      ${ev.demandeur ? `<span class="who">${esc(ev.demandeur)}</span>` : ""}
+      <span class="ev-meta">${placeOf(ev)}</span>
+      <span class="when">${lab(ev.s)} – ${lab(ev.e)}</span>
+      <span class="rel">${kind === "live" ? `Se termine dans ${rel(ev.e - m)}` : `Commence dans ${rel(ev.s - m)}`}</span>
+    </button>`;
+  };
+  let html = `<div class="now-wrap"><div class="now-head"><span class="now-clock">${lab(m)}</span>
+    <button type="button" class="btn" id="fsBtn">${document.fullscreenElement ? "Quitter le plein écran" : "Plein écran"}</button></div>`;
+  html += `<section class="now-sec"><h2>En ce moment</h2>${live.length ? `<div class="now-grid">${live.map(e => card(e, "live")).join("")}</div>` : `<div class="now-empty">Aucun événement en cours.</div>`}</section>`;
+  html += `<section class="now-sec"><h2>Dans les deux prochaines heures</h2>${soon.length ? `<div class="now-grid">${soon.map(e => card(e, "soon")).join("")}</div>` : `<div class="now-empty">Rien ne commence d'ici ${lab(Math.min(m + 120, 24 * 60 - 1))}.</div>`}</section>`;
+  if (later.length) html += `<section class="now-sec"><h2>Plus tard aujourd'hui</h2><div class="now-later">${later.map(ev =>
+    `<button type="button" class="now-row" data-id="${esc(ev.id)}"><span class="when">${lab(ev.s)}–${lab(ev.e)}</span><span class="what"><b>${esc(ev.intitule)}</b>${placeOf(ev)}</span></button>`).join("")}</div></section>`;
+  if (!live.length && !soon.length && !later.length) {
+    const nxt = active().filter(i => inFilter(i) && (i.date > di || (i.date === di && i.s > m))).sort((a,b) => a.date.localeCompare(b.date) || a.s - b.s)[0];
+    html += `<div class="now-empty">${nxt ? `Prochain événement : ${esc(cap1(fLong.format(parse(nxt.date))))} à ${lab(nxt.s)} — « ${esc(nxt.intitule)} »` : "Aucun événement à venir."}</div>`;
+  }
+  return html + `</div>`;
+}
 function renderAgenda(){
   const di = iso(state.date), conf = conflictIds(), now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes(), isToday = di === iso(now);
@@ -471,7 +530,7 @@ function render(){
   for (const id of ["prev","next","todayBtn","pick"]) $(id).hidden = !nav;
   document.querySelector(".legend").hidden = state.view === "salles";
   const v = $("view");
-  v.innerHTML = state.view === "trois" ? renderWeek(3) : state.view === "cinq" ? renderWeek(5) : state.view === "semaine" ? renderWeek(7) : state.view === "jour" ? renderWeek(1) : state.view === "liste" ? renderList() : renderRooms();
+  v.innerHTML = state.view === "maintenant" ? renderNow() : state.view === "trois" ? renderWeek(3) : state.view === "cinq" ? renderWeek(5) : state.view === "semaine" ? renderWeek(7) : state.view === "jour" ? renderWeek(1) : state.view === "liste" ? renderList() : renderRooms();
 }
 function setStatus(){
   const s = $("status"), t = $("statusText"), nb = $("notice");
@@ -745,6 +804,12 @@ $("addBtn").addEventListener("click", () => {
   form(null, { date: iso(state.date), salleId: room });
 });
 $("view").addEventListener("click", e => {
+  if (e.target.closest("#fsBtn")) {
+    const v = $("view");
+    try { if (document.fullscreenElement) document.exitFullscreen(); else v.requestFullscreen().catch(() => toast("Le plein écran n'est pas disponible ici.")); } catch { toast("Le plein écran n'est pas disponible ici."); }
+    return;
+  }
+  if (document.fullscreenElement && e.target.closest("[data-id]")) { try { document.exitFullscreen(); } catch {} }
   const re = e.target.closest("[data-room-edit]");
   if (re) { const r = ROOM_BY_ID[re.dataset.roomEdit]; if (r) roomForm(r); return; }
   const b = e.target.closest("[data-id]");
@@ -766,6 +831,8 @@ sheetEl.addEventListener("click", e => {
 $("backdrop").addEventListener("click", closeSheet);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !sheetEl.hidden) closeSheet(); });
 setInterval(() => { if (sheetEl.hidden && state.view in STEP_DAYS) render(); }, 5 * 60 * 1000);
+setInterval(() => { if (sheetEl.hidden && state.view === "maintenant") render(); }, 30 * 1000);
+document.addEventListener("fullscreenchange", () => { if (state.view === "maintenant") render(); });
 let wasNarrow = narrow();
 window.addEventListener("resize", () => { const n = narrow(); if (n !== wasNarrow) { wasNarrow = n; if (state.view === "jour" && sheetEl.hidden) render(); } });
 
