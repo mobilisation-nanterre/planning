@@ -581,6 +581,19 @@ function render(){
   if (state.q) { document.querySelector(".legend").hidden = false; v.innerHTML = renderSearch(); return; }
   v.innerHTML = state.view === "maintenant" ? renderNow() : state.view === "trois" ? renderWeek(3) : state.view === "cinq" ? renderWeek(5) : state.view === "semaine" ? renderWeek(7) : state.view === "jour" ? renderWeek(1) : state.view === "liste" ? renderList() : renderRooms();
 }
+/* Mises à jour automatiques à h55, de 6h55 à 22h55. On laisse 20 minutes à chacune pour aboutir,
+   et on tolère un passage manqué : l'alerte n'apparaît qu'après deux passages manqués d'affilée. */
+function lastRun(at){
+  const d = new Date(at); d.setSeconds(0, 0);
+  if (d.getMinutes() < 55) d.setHours(d.getHours() - 1);
+  d.setMinutes(55);
+  while (d.getHours() < 6 || d.getHours() > 22) d.setHours(d.getHours() - 1, 55);
+  return d;
+}
+function isStale(t0){
+  const ref = lastRun(Date.now() - 20 * 60000), prev = lastRun(ref.getTime() - 60000);
+  return t0.getTime() < prev.getTime() - 10 * 60000;
+}
 function setStatus(){
   const s = $("status"), t = $("statusText"), nb = $("notice");
   s.className = "status";
@@ -601,6 +614,12 @@ function setStatus(){
     const shown = t0 && !isNaN(t0) ? new Date(t0) : null;
     if (shown && shown.getMinutes() >= 50) { shown.setHours(shown.getHours() + 1, 0, 0, 0); }
     t.textContent = shown ? `Consultation · mis à jour le ${shown.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})} à ${shown.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}).replace(":","h")}` : "Consultation";
+    if (shown && isStale(t0)) {
+      const h = shown.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}).replace(":","h");
+      const when = iso(shown) === iso(new Date()) ? h : `le ${shown.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})} à ${h}`;
+      s.className = "status off"; nb.className = "notice warn";
+      nb.textContent = `Attention : ce planning n'a pas été mis à jour depuis ${when}. Des changements récents peuvent manquer.`;
+    }
     return;
   }
   if (state.canWrite) { s.classList.add("ok"); t.textContent = "Vous pouvez réserver"; }
@@ -885,6 +904,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !sheetEl.h
 setInterval(() => { if (sheetEl.hidden && state.view in STEP_DAYS) render(); }, 5 * 60 * 1000);
 setInterval(() => { if (sheetEl.hidden && state.view === "maintenant") render(); }, 30 * 1000);
 document.addEventListener("fullscreenchange", () => { if (state.view === "maintenant") render(); });
+setInterval(() => { if (state.dbState === "snapshot") setStatus(); }, 5 * 60 * 1000);
 let wasNarrow = narrow();
 window.addEventListener("resize", () => { const n = narrow(); if (n !== wasNarrow) { wasNarrow = n; if (state.view === "jour" && sheetEl.hidden) render(); } });
 
