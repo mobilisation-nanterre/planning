@@ -945,6 +945,9 @@ if (SNAP) {
   setRooms((SNAP.salles || []).map(asDoc).map(parseRoom).filter(Boolean));
   state.items = (SNAP.reservations || []).map(asDoc).map(clean).filter(Boolean);
   state.dbState = "snapshot"; state.canWrite = false;
+  /* La vue Salles sert à gérer les salles : inutile sur la page publique. */
+  $("v-salles").remove();
+  if (state.view === "salles") state.view = "jour";
   buildFilter(); setStatus(); render();
 } else (async () => {
   const c = window.claude;
