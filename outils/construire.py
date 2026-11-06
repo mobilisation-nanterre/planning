@@ -37,19 +37,30 @@ def clean(doc_id, data):
     return {"id": str(doc_id), "data": {k: v for k, v in (data or {}).items() if k in PUBLIC_FIELDS}}
 
 def lines(name):
+    """Lit un fichier de lignes JSON. Tolère un document coupé sur plusieurs lignes (par exemple quand un
+    retour à la ligne d'une remarque a été recopié comme un vrai saut de ligne)."""
     f, out = SRC / name, []
     if not f.exists():
         return out
+    buf, start = "", 0
     for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
+        if not buf:
+            if not line.strip().startswith("{"):
+                continue
+            buf, start = line.strip(), n
+        else:
+            buf += "\n" + line
         try:
-            o = json.loads(line)
-        except json.JSONDecodeError as e:
-            sys.exit(f"{name}, ligne {n} : JSON invalide ({e}) — index.html n'est pas modifié.")
+            o = json.loads(buf, strict=False)
+        except json.JSONDecodeError:
+            if n - start > 50:
+                sys.exit(f"{name}, à partir de la ligne {start} : JSON invalide — index.html n'est pas modifié.")
+            continue
+        buf = ""
         if isinstance(o, dict) and "id" in o and isinstance(o.get("data"), dict):
             out.append(o)
+    if buf:
+        sys.exit(f"{name}, à partir de la ligne {start} : JSON incomplet — index.html n'est pas modifié.")
     return out
 
 snap = snapshot()
@@ -80,4 +91,4 @@ html = ("<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\">"
         f"<script>window.__SNAPSHOT={payload};</script>\n{page}\n</body></html>\n")
 INDEX.write_text(html, encoding="utf-8")
 print(f"index.html : {len(salles)} salles, {len(resas)} réservations "
-      f"({nr} réservation(s) et {ns} salle(s) mises à jour, {nd} suppression(s))")
+      f"({nr} réservation(s) et {ns} salle(s) lues, {nd} suppression(s) appliquée(s))")
