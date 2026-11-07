@@ -39,6 +39,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);margin:0;letter-spacing:-.01em;text-wrap:balance}
 .topright{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .publink{font-size:13px;color:var(--accent)}
+.propose{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:12px 16px;font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.propose a{color:inherit;text-decoration:underline;text-underline-offset:3px}
 .status{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--muted)}
 .status i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
 .status.ok i{background:#2f9e5b}.status.ro i{background:var(--accent)}.status.off i{background:var(--warn)}
@@ -213,6 +215,8 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
       <span id="status" class="status"><i></i><span id="statusText">Chargement…</span></span>
     </div>
   </header>
+
+  <p class="propose" id="propose" hidden>Pour faire une proposition d'activité : <a href="mailto:nanterre.gestion.planning@protonmail.me">nanterre.gestion.planning@protonmail.me</a></p>
 
   <div class="bar">
     <div class="viewpick">
@@ -955,6 +959,7 @@ if (SNAP) {
   state.dbState = "snapshot"; state.canWrite = false;
   /* La vue Salles sert à gérer les salles : inutile sur la page publique. */
   $("v-salles").remove();
+  $("propose").hidden = false;
   if (state.view === "salles") state.view = "jour";
   buildFilter(); setStatus(); render();
 } else (async () => {
