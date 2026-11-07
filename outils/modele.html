@@ -645,8 +645,10 @@ function timeOptions(sel, from, to){
   let h = ""; for (let m = from; m <= to; m += STEP) h += `<option value="${hhmm(m)}" ${hhmm(m) === sel ? "selected" : ""}>${lab(m)}</option>`; return h;
 }
 function roomOptions(sel){
+  /* Nom, capacité et usage de la salle, pour aider à choisir. */
+  const label = r => `${r.n}${r.c ? ` (${r.c} pl.)` : ""}${r.u ? ` · ${r.u}` : ""}`;
   return groups(ROOMS).map(g => `<optgroup label="${esc(g.label)}">${g.rooms.map(r =>
-    `<option value="${esc(r.id)}" data-label="${esc(r.n)}${r.c ? ` (${r.c} pl.)` : ""}" ${r.id === sel ? "selected" : ""}>${esc(r.n)}${r.c ? ` (${r.c} pl.)` : ""}</option>`).join("")}</optgroup>`).join("");
+    `<option value="${esc(r.id)}" data-label="${esc(label(r))}" ${r.id === sel ? "selected" : ""}>${esc(label(r))}</option>`).join("")}</optgroup>`).join("");
 }
 /* Dans le formulaire, signale les salles déjà prises sur la date et les horaires choisis
    (couleur là où le navigateur l'affiche, et mention écrite partout, téléphones compris). */
