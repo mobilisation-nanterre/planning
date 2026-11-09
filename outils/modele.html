@@ -52,6 +52,19 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);m
 @media (max-width:640px){.seg{max-width:100%;overflow-x:auto;scrollbar-width:none}.seg button{padding:7px 10px}}
 .seg button+button{border-left:1px solid var(--line-strong)}
 .bar:has(.viewpick){align-items:flex-end}
+.fr-ctl{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px;margin:6px 0 4px}
+.fr-ctl label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
+.fr-ctl .field{min-width:110px}
+.fr-h{margin:22px 0 10px;font-family:var(--f-display);font-size:15px;font-weight:600}
+.fr-grp{margin:14px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.fr-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.fr-room{display:flex;flex-direction:column;gap:3px;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line-strong);border-left:4px solid #2e9d5b;border-radius:8px;padding:9px 12px;cursor:pointer}
+.fr-room:hover{border-color:#2e9d5b}
+.fr-room:disabled{cursor:default}
+.fr-room.busy{border-left-color:var(--warn);cursor:pointer}
+.fr-room .n{font-weight:700}
+.fr-room .m,.fr-room .x{font-size:13px;color:var(--muted)}
+.fr-room.busy .x{color:var(--warn)}
 .viewpick{display:flex;flex-direction:column;gap:4px;min-width:0;max-width:100%}
 .viewpick-label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:600}
@@ -228,6 +241,7 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
       <button type="button" id="v-cinq" data-view="cinq">5 jours</button>
       <button type="button" id="v-semaine" data-view="semaine">Semaine</button>
       <button type="button" id="v-liste" data-view="liste">Liste</button>
+      <button type="button" id="v-libres" data-view="libres">Salles libres</button>
       <button type="button" id="v-salles" data-view="salles">Salles</button>
     </div>
     </div>
@@ -320,8 +334,8 @@ const store = {
   set(k,v){ try { localStorage.setItem(k,v); } catch {} }
 };
 
-const VIEWS = ["maintenant","jour","trois","cinq","semaine","liste","salles"];
-const STEP_DAYS = {trois: 3, cinq: 7, semaine: 7, jour: 1};
+const VIEWS = ["maintenant","jour","trois","cinq","semaine","liste","libres","salles"];
+const STEP_DAYS = {trois: 3, cinq: 7, semaine: 7, jour: 1, libres: 1};
 const todayISO = iso(new Date());
 const state = {
   view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue4") || "jour"),
@@ -589,7 +603,7 @@ function render(){
   document.querySelector(".legend").hidden = state.view === "salles";
   const v = $("view");
   if (state.q) { document.querySelector(".legend").hidden = false; v.innerHTML = renderSearch(); return; }
-  v.innerHTML = state.view === "maintenant" ? renderNow() : state.view === "trois" ? renderWeek(3) : state.view === "cinq" ? renderWeek(5) : state.view === "semaine" ? renderWeek(7) : state.view === "jour" ? renderWeek(1) : state.view === "liste" ? renderList() : renderRooms();
+  v.innerHTML = state.view === "maintenant" ? renderNow() : state.view === "trois" ? renderWeek(3) : state.view === "cinq" ? renderWeek(5) : state.view === "semaine" ? renderWeek(7) : state.view === "jour" ? renderWeek(1) : state.view === "liste" ? renderList() : state.view === "libres" ? renderFree() : renderRooms();
 }
 /* Mises à jour automatiques à h55, de 6h55 à 22h55. On laisse 20 minutes à chacune pour aboutir,
    et on tolère un passage manqué : l'alerte n'apparaît qu'après deux passages manqués d'affilée. */
@@ -767,6 +781,52 @@ function form(it, preset){
   });
 }
 /* ---------- salles ---------- */
+/* Salles libres : pour la date choisie et un créneau (par défaut, l'heure en cours et les deux heures suivantes),
+   les salles sans aucune réservation, puis les salles occupées avec ce qui les occupe. */
+function freeSlot(){
+  if (!state.free) {
+    const n = new Date(), m = Math.floor((n.getHours() * 60 + n.getMinutes()) / STEP) * STEP;
+    const s = iso(state.date) === iso(n) && m >= START && m < END ? m : 9 * 60;
+    state.free = {s, e: Math.min(END, s + 120)};
+  }
+  return state.free;
+}
+function busyFor(r, date, s, e){
+  const rec = {date, s, e, salleId: r.id, salle: r.n, batiment: r.b};
+  let out = conflictsOf({...rec, key: r.id}).map(x => ({s: x.s, e: x.e, t: x.intitule, id: x.id}));
+  if (typeof extConflictsOf === "function") out = out.concat(extConflictsOf(rec).map(x => ({s: x.s, e: x.e, t: "Planning de la mobilisation", id: ""})));
+  return out.sort((a,b) => a.s - b.s);
+}
+function renderFree(){
+  const {s, e} = freeSlot(), date = iso(state.date);
+  $("range").textContent = cap1(fLong.format(state.date));
+  const ctl = `<div class="fr-ctl"><label for="fr-debut">De<select class="field" id="fr-debut">${timeOptions(hhmm(s), START, END - STEP)}</select></label>
+    <label for="fr-fin">À<select class="field" id="fr-fin">${timeOptions(hhmm(e), START + STEP, END)}</select></label></div>`;
+  const free = [], busy = [];
+  for (const r of ROOMS) { const b = busyFor(r, date, s, e); (b.length ? busy : free).push({r, b}); }
+  $("count").textContent = `${free.length} salle${free.length>1?"s":""} libre${free.length>1?"s":""} sur ${ROOMS.length}`;
+  const after = r => { const n = busyFor(r, date, e, END)[0]; return n ? `Ensuite occupée à ${lab(n.s)}` : "Libre jusqu'au soir"; };
+  const meta = r => [r.c ? `${r.c} places` : "", r.u].filter(Boolean).join(" · ");
+  const card = ({r, b}) => b.length
+    ? `<button type="button" class="fr-room busy" ${b[0].id ? `data-id="${esc(b[0].id)}"` : "disabled"}><span class="n">${esc(r.n)}</span>${meta(r) ? `<span class="m">${esc(meta(r))}</span>` : ""}<span class="x">${b.map(x => `${lab(x.s)}–${lab(x.e)} · ${esc(x.t)}`).join("<br>")}</span></button>`
+    : `<button type="button" class="fr-room" data-free-room="${esc(r.id)}" ${state.canWrite && state.dbState === "ok" ? `title="Réserver cette salle sur ce créneau"` : "disabled"}><span class="n">${esc(r.n)}</span>${meta(r) ? `<span class="m">${esc(meta(r))}</span>` : ""}<span class="x">${after(r)}</span></button>`;
+  const block = list => groups(list.map(x => x.r)).map(g => `<p class="fr-grp">${esc(g.label)}</p><div class="fr-list">${g.rooms.map(r => card(list.find(x => x.r === r))).join("")}</div>`).join("");
+  return `<div class="free">${ctl}
+    <h2 class="fr-h">Libres de ${lab(s)} à ${lab(e)}${state.canWrite && state.dbState === "ok" ? ` <span class="hint">· cliquez sur une salle pour la réserver</span>` : ""}</h2>
+    ${free.length ? block(free) : `<p class="sr-head">Aucune salle n'est libre sur tout ce créneau.</p>`}
+    ${busy.length ? `<h2 class="fr-h">Occupées</h2>${block(busy)}` : ""}</div>`;
+}
+document.addEventListener("change", ev => {
+  if (ev.target.id !== "fr-debut" && ev.target.id !== "fr-fin") return;
+  let s = toMin($("fr-debut").value), e = toMin($("fr-fin").value);
+  if (e <= s) { if (ev.target.id === "fr-debut") e = Math.min(END, s + 120); else s = Math.max(START, e - STEP); }
+  state.free = {s, e}; render();
+});
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-free-room]"); if (!b || b.disabled) return;
+  const {s, e} = freeSlot();
+  form(null, {date: iso(state.date), debut: hhmm(s), fin: hhmm(e), salleId: b.dataset.freeRoom});
+});
 function renderRooms(){
   const rooms = roomsShown(), today = iso(new Date());
   const bs = buildings();
@@ -959,6 +1019,8 @@ if (SNAP) {
   state.dbState = "snapshot"; state.canWrite = false;
   /* La vue Salles sert à gérer les salles : inutile sur la page publique. */
   $("v-salles").remove();
+  $("v-libres").remove();
+  if (state.view === "libres") state.view = "jour";
   $("propose").hidden = false;
   if (state.view === "salles") state.view = "jour";
   buildFilter(); setStatus(); render();
