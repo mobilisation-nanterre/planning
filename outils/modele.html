@@ -703,12 +703,12 @@ function form(it, preset){
   openSheet(`<div class="head"><h2 id="sheetTitle">${it ? "Modifier la réservation" : "Nouvelle réservation"}</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
   <form id="resForm" novalidate>
     <label for="f-intitule">Intitulé de l'événement<input class="field" id="f-intitule" required maxlength="140" value="${esc(p.intitule || "")}" placeholder="Ex. Journée d'étude du laboratoire"></label>
-    <label for="f-salle">Salle <span class="hint">facultatif · <span id="f-salle-hint"></span></span><select class="field" id="f-salle"><option value="" ${ROOM_BY_ID[p.salleId] ? "" : "selected"}>Sans salle (lieu non précisé)</option>${roomOptions(p.salleId)}</select></label>
     <label for="f-date">Date<input class="field" type="date" id="f-date" required value="${esc(p.date || iso(state.date))}"></label>
     <div class="two">
       <label for="f-debut">Début<select class="field" id="f-debut">${timeOptions(s, START, END - STEP)}</select></label>
       <label for="f-fin">Fin<select class="field" id="f-fin">${timeOptions(e, START + STEP, END)}</select></label>
     </div>
+    <label for="f-salle">Salle <span class="hint">facultatif · <span id="f-salle-hint"></span></span><select class="field" id="f-salle"><option value="" ${ROOM_BY_ID[p.salleId] ? "" : "selected"}>Sans salle (lieu non précisé)</option>${roomOptions(p.salleId)}</select></label>
     <label for="f-demandeur">Intervenant-e <span class="hint">facultatif</span><input class="field" id="f-demandeur" maxlength="120" value="${esc(p.demandeur || "")}"></label>
     <label for="f-statut">Statut<select class="field" id="f-statut">${["Confirmée","Demandée","Annulée"].filter(x => it || x !== "Annulée").map(x => `<option ${x === (p.statut || "Confirmée") ? "selected" : ""}>${x}</option>`).join("")}</select></label>
     <label for="f-remarques">Remarques <span class="hint">facultatif</span><textarea class="field" id="f-remarques" rows="3" maxlength="600">${esc(p.remarques || "")}</textarea></label>
