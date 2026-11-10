@@ -201,6 +201,9 @@ tr.conf td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
 .sheet .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 form{display:flex;flex-direction:column;gap:12px}
 label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600}
+label.check{flex-direction:row;align-items:flex-start;gap:10px;font-weight:400;font-size:14px;cursor:pointer}
+label.check input{width:18px;height:18px;margin:1px 0 0;flex:none;accent-color:var(--accent)}
+.nores{display:inline-block;margin-left:6px;font-size:12px;font-weight:600;color:var(--warn);white-space:nowrap}
 label .hint{font-weight:400;color:var(--muted)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .two>*{min-width:0}
@@ -671,7 +674,8 @@ function timeOptions(sel, from, to){
 function roomOptions(sel){
   /* Nom, capacité et usage de la salle, pour aider à choisir. */
   const label = r => `${r.n}${r.c ? ` (${r.c} pl.)` : ""}${r.u ? ` · ${r.u}` : ""}`;
-  return groups(ROOMS).map(g => `<optgroup label="${esc(g.label)}">${g.rooms.map(r =>
+  /* Les salles non réservables sont écartées, sauf celle déjà choisie pour une réservation existante. */
+  return groups(ROOMS.filter(r => !r.x || r.id === sel)).map(g => `<optgroup label="${esc(g.label)}">${g.rooms.map(r =>
     `<option value="${esc(r.id)}" data-label="${esc(label(r))}" ${r.id === sel ? "selected" : ""}>${esc(label(r))}</option>`).join("")}</optgroup>`).join("");
 }
 /* Dans le formulaire, signale les salles déjà prises sur la date et les horaires choisis
@@ -803,8 +807,9 @@ function renderFree(){
   const ctl = `<div class="fr-ctl"><label for="fr-debut">De<select class="field" id="fr-debut">${timeOptions(hhmm(s), START, END - STEP)}</select></label>
     <label for="fr-fin">À<select class="field" id="fr-fin">${timeOptions(hhmm(e), START + STEP, END)}</select></label></div>`;
   const free = [], busy = [];
-  for (const r of ROOMS) { const b = busyFor(r, date, s, e); (b.length ? busy : free).push({r, b}); }
-  $("count").textContent = `${free.length} salle${free.length>1?"s":""} libre${free.length>1?"s":""} sur ${ROOMS.length}`;
+  const bookable = ROOMS.filter(r => !r.x);
+  for (const r of bookable) { const b = busyFor(r, date, s, e); (b.length ? busy : free).push({r, b}); }
+  $("count").textContent = `${free.length} salle${free.length>1?"s":""} libre${free.length>1?"s":""} sur ${bookable.length}`;
   const after = r => { const n = busyFor(r, date, e, END)[0]; return n ? `Ensuite occupée à ${lab(n.s)}` : "Libre jusqu'au soir"; };
   const meta = r => [r.c ? `${r.c} places` : "", r.u].filter(Boolean).join(" · ");
   const card = ({r, b}) => b.length
@@ -837,8 +842,8 @@ function renderRooms(){
   for (const g of groups(rooms)) {
     const list = g.rooms;
     rows += `<tr><th colspan="${state.canWrite ? 7 : 6}" class="grp">${esc(g.label)}</th></tr>`;
-    rows += list.map(r => { const n = upcoming(r.id); return `<tr>
-      <td><span class="plate">${esc(r.n)}</span></td><td>${esc(r.b)}</td><td>${esc(r.e)}</td><td class="t">${r.c ? r.c + " pl." : "—"}</td><td>${esc(r.u) || "—"}</td>
+    rows += list.map(r => { const n = upcoming(r.id); return `<tr${r.x ? ' class="off"' : ""}>
+      <td><span class="plate">${esc(r.n)}</span>${r.x ? `<span class="nores">Non réservable</span>` : ""}</td><td>${esc(r.b)}</td><td>${esc(r.e)}</td><td class="t">${r.c ? r.c + " pl." : "—"}</td><td>${esc(r.u) || "—"}</td>
       <td>${n ? `${n} à venir` : "Aucune"}</td>
       ${state.canWrite ? `<td><button type="button" class="btn" style="padding:2px 10px" data-room-edit="${esc(r.id)}">Modifier</button></td>` : ""}</tr>`; }).join("");
   }
@@ -848,7 +853,7 @@ function renderRooms(){
 function roomForm(room){
   const fb = state.filter.startsWith("bat:") ? state.filter.slice(4) : state.filter.startsWith("floor:") ? state.filter.slice(6).split("|")[0] : buildings()[0] || DEFAULT_BUILDING;
   const fe = state.filter.startsWith("floor:") ? state.filter.slice(6).split("|")[1] : "RDC";
-  const r = room || {n:"", b: fb, e: fe, c:null, u:""};
+  const r = room || {n:"", b: fb, e: fe, c:null, u:"", x:false};
   const nRes = room ? state.items.filter(i => keyOf(i) === room.id).length : 0;
   openSheet(`<div class="head"><h2 id="sheetTitle">${room ? "Modifier la salle" : "Nouvelle salle"}</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
   <form id="roomForm" novalidate>
@@ -857,6 +862,7 @@ function roomForm(room){
     <label for="r-etage">Étage<select class="field" id="r-etage">${FLOORS.map(f => `<option value="${f}" ${f === r.e ? "selected" : ""}>${FLOOR_LABEL[f]}</option>`).join("")}</select></label>
     <label for="r-cap">Capacité <span class="hint">nombre de places, facultatif</span><input class="field" id="r-cap" type="number" min="1" max="2000" step="1" inputmode="numeric" value="${r.c ?? ""}"></label>
     <label for="r-usage">Usage <span class="hint">facultatif</span><input class="field" id="r-usage" maxlength="80" value="${esc(r.u)}" placeholder="Ex. Salle de répétition"></label>
+    <label class="check" for="r-nores"><input type="checkbox" id="r-nores" ${r.x ? "checked" : ""}><span>Salle non réservable<br><span class="hint" style="font-size:13px;color:var(--muted)">Elle ne sera plus proposée dans le formulaire de réservation ni dans « Salles libres ». Les réservations existantes sont conservées.</span></span></label>
     ${room && nRes ? `<p class="hint" style="margin:0;font-size:13px;color:var(--muted)">${nRes} réservation${nRes>1?"s":""} utilise${nRes>1?"nt":""} cette salle. Si vous changez son nom ou son bâtiment, elle${nRes>1?"s":""} suivr${nRes>1?"ont":"a"}.</p>` : ""}
     <div id="roomMsg" hidden></div>
     <div class="actions">
@@ -880,7 +886,7 @@ function roomForm(room){
     $("roomSave").disabled = true;
     try {
       await ensureRoomsInDb();
-      const body = {nom, batiment, etage, capacite, usage, modifieLe: new Date().toISOString()};
+      const body = {nom, batiment, etage, capacite, usage, nonReservable: $("r-nores").checked, modifieLe: new Date().toISOString()};
       if (room) {
         const linked = state.items.filter(i => keyOf(i) === room.id);
         await state.db.doc("salles/" + room.id).set(body);
@@ -1006,7 +1012,7 @@ async function setupPublishButton(){
 /* ---------- démarrage ---------- */
 function parseRoom(d){
   const x = d.data() || {}, n = String(x.nom || "").trim();
-  return n ? {id: d.id, n, b: String(x.batiment || "").trim() || DEFAULT_BUILDING, e: FLOORS.includes(x.etage) ? x.etage : "Autre", c: Number(x.capacite) > 0 ? Number(x.capacite) : null, u: String(x.usage || "")} : null;
+  return n ? {id: d.id, n, b: String(x.batiment || "").trim() || DEFAULT_BUILDING, e: FLOORS.includes(x.etage) ? x.etage : "Autre", c: Number(x.capacite) > 0 ? Number(x.capacite) : null, u: String(x.usage || ""), x: x.nonReservable === true} : null;
 }
 function setRooms(list){ roomsFromDb = list.length > 0; ROOMS = roomsFromDb ? sortRooms(list) : sortRooms(DEFAULT_ROOMS); indexRooms(); }
 /* Copie publique : les données sont intégrées à la page (window.__SNAPSHOT), en lecture seule. */
