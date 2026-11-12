@@ -73,7 +73,16 @@ body.public .legend .st{display:none!important}
 .cat-permanence{--block:#d4f0e8;--block-edge:#1f8a6c;--block-ink:#0b3b2e}
 .cat-convivial{--block:#ebe3fb;--block-edge:#7a4fd8;--block-ink:#2f1868}
 .cat-autre{--block:#e8e6e3;--block-edge:#85807a;--block-ink:#2e2b28}
-.legend .cats{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.legend .cats{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.catf-lab{color:var(--muted)}
+.catf{font:inherit;color:inherit;background:none;border:1px solid transparent;border-radius:5px;padding:1px 5px;cursor:pointer;display:inline-flex;align-items:center}
+.catf:hover{border-color:var(--line-strong)}
+.catf:focus-visible,.catf-all:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cats.filtering .catf:not([aria-pressed="true"]){opacity:.4}
+.cats.filtering .catf[aria-pressed="true"]{border-color:var(--line-strong);background:var(--surface);font-weight:600}
+.catf .s{display:none}
+@media (max-width:640px){.catf .l{display:none}.catf .s{display:inline}.catf-lab{width:100%}}
+.catf-all{font:inherit;font-size:12px;background:none;border:0;color:var(--accent);text-decoration:underline;cursor:pointer;padding:1px 4px}
 .legend .st{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding-left:12px;border-left:1px solid var(--line-strong)}
 td .sw{margin-right:6px}
 @media (prefers-color-scheme:dark){
@@ -289,7 +298,7 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
 
   <div class="summary">
     <span id="count"></span>
-    <span class="legend"><span class="cats"><span><span class="sw cat-cours"></span>Cours, ateliers, conférences</span><span><span class="sw cat-ag"></span>AG, réunions</span><span><span class="sw cat-culture"></span>Activités culturelles et artistiques</span><span><span class="sw cat-permanence"></span>Permanences, entraide</span><span><span class="sw cat-convivial"></span>Moments conviviaux</span><span><span class="sw cat-autre"></span>Autres</span></span><span class="st"><span><span class="sw req"></span>Demandée</span><span><span class="sw conf"></span>Conflit de salle</span></span></span>
+    <span class="legend"><span class="cats"><span class="catf-lab">Filtrer :</span><button type="button" class="catf" data-cat="cours" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-cours"></span><span class="l">Cours, ateliers, conférences</span><span class="s">Cours</span></button><button type="button" class="catf" data-cat="ag" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-ag"></span><span class="l">AG, réunions</span><span class="s">AG</span></button><button type="button" class="catf" data-cat="culture" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-culture"></span><span class="l">Activités culturelles et artistiques</span><span class="s">Culture</span></button><button type="button" class="catf" data-cat="permanence" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-permanence"></span><span class="l">Permanences, entraide</span><span class="s">Entraide</span></button><button type="button" class="catf" data-cat="convivial" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-convivial"></span><span class="l">Moments conviviaux</span><span class="s">Convivial</span></button><button type="button" class="catf" data-cat="autre" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-autre"></span><span class="l">Autres</span><span class="s">Autres</span></button><button type="button" class="catf-all" id="catAll" hidden>Tout afficher ×</button></span><span class="st"><span><span class="sw req"></span>Demandée</span><span><span class="sw conf"></span>Conflit de salle</span></span></span>
   </div>
 
   <div id="notice" hidden></div>
@@ -370,7 +379,7 @@ const state = {
   view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue4") || "jour"),
   date: parse(todayISO >= PERIOD.from && todayISO <= PERIOD.to ? todayISO : PERIOD.from),
   filter: store.get("ric.filter") || "all",
-  q: "", items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
+  q: "", cats: new Set(), items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
 };
 if (!VIEWS.includes(state.view)) state.view = "jour";
 
@@ -395,7 +404,8 @@ const roomsShown = () => state.filter === "all" ? ROOMS
   : state.filter.startsWith("bat:") ? ROOMS.filter(r => r.b === state.filter.slice(4))
   : state.filter.startsWith("floor:") ? (([b,e]) => ROOMS.filter(r => r.b === b && r.e === e))(state.filter.slice(6).split("|"))
   : ROOMS.filter(r => r.id === state.filter.slice(5));
-const inFilter = it => { if (state.filter === "all") return true; if (state.filter === "none") return !hasRoom(it); if (!hasRoom(it)) return false; const ids = new Set(roomsShown().map(r => r.id)); return ids.has(keyOf(it)); };
+const catOk = it => !state.cats.size || state.cats.has(catOf(it));
+const inFilter = it => { if (!catOk(it)) return false; if (state.filter === "all") return true; if (state.filter === "none") return !hasRoom(it); if (!hasRoom(it)) return false; const ids = new Set(roomsShown().map(r => r.id)); return ids.has(keyOf(it)); };
 
 /* ---------- données ---------- */
 function clean(d){
@@ -545,7 +555,7 @@ function renderDay(){
   const we = state.date.getDay() === 0 || state.date.getDay() === 6;
   $("range").textContent = cap1(fLong.format(state.date));
   let n = 0, head = `<div class="corner"></div>`, cols = "";
-  const loose = (state.filter === "all" || state.filter === "none") ? lanes(active().filter(i => i.date === di && !hasRoom(i))) : [];
+  const loose = (state.filter === "all" || state.filter === "none") ? lanes(active().filter(i => catOk(i) && i.date === di && !hasRoom(i))) : [];
   const showLoose = loose.length > 0 || state.filter === "none";
   if (showLoose) {
     head += `<div class="dh room ${we?"we":""}"><span class="plate">Sans salle</span><span class="cap">Lieu non précisé</span></div>`;
@@ -554,10 +564,10 @@ function renderDay(){
   }
   for (const r of rooms) {
     head += `<div class="dh room ${we?"we":""}"><span class="plate">${esc(r.n)}</span><span class="cap">${esc(r.b)} · ${esc(r.e)}${r.c ? ` · ${r.c} pl.` : ""}${r.u ? ` · ${esc(r.u)}` : ""}</span></div>`;
-    const evs = lanes(active().filter(i => i.date === di && keyOf(i) === r.id)); n += evs.length;
+    const evs = lanes(active().filter(i => catOk(i) && i.date === di && keyOf(i) === r.id)); n += evs.length;
     cols += `<div class="col ${we?"we":""} ${state.canWrite?"writable":""}" data-date="${di}" data-room="${esc(r.id)}">${nowLine(di)}${evs.map(e => block(e, conf, "jour")).join("")}</div>`;
   }
-  const ids = new Set(rooms.map(r => r.id)), busy = new Set(active().filter(i => i.date === di && ids.has(keyOf(i))).map(keyOf)).size;
+  const ids = new Set(rooms.map(r => r.id)), busy = new Set(active().filter(i => catOk(i) && i.date === di && ids.has(keyOf(i))).map(keyOf)).size;
   if (state.filter === "none") $("count").textContent = n ? `${n} événement${n>1?"s":""} sans salle ce jour` : "Aucun événement sans salle ce jour";
   else $("count").textContent = n ? `${n} réservation${n>1?"s":""} ce jour · ${rooms.length - busy} salle${rooms.length-busy>1?"s":""} libre${rooms.length-busy>1?"s":""} toute la journée` : "Aucune réservation ce jour : toutes les salles sont libres";
   return `<div class="scroller"><div class="cal" style="--cols:${rooms.length + (showLoose ? 1 : 0)};--colmin:118px">${head}${timeCol()}${cols}</div></div>`;
@@ -593,7 +603,7 @@ function hilite(text, words){
 function renderSearch(){
   const words = fold(state.q).split(/\s+/).filter(Boolean), conf = conflictIds();
   const hay = it => fold([it.intitule, it.demandeur, nameOf(it), batOf(it), it.remarques].join(" "));
-  const hits = active().filter(it => { const h = hay(it); return words.every(w => h.includes(w)); });
+  const hits = active().filter(it => { if (!catOk(it)) return false; const h = hay(it); return words.every(w => h.includes(w)); });
   const coming = hits.filter(i => !isPast(i)).sort((a,b) => a.date.localeCompare(b.date) || a.s - b.s);
   const past = hits.filter(isPast).sort((a,b) => b.date.localeCompare(a.date) || b.s - a.s);
   $("range").textContent = `Recherche : « ${state.q.trim()} »`;
@@ -977,6 +987,19 @@ $("prev").addEventListener("click", () => { state.date = addDays(state.date, -(S
 $("next").addEventListener("click", () => { state.date = addDays(state.date, STEP_DAYS[state.view] || 7); render(); });
 $("todayBtn").addEventListener("click", () => { state.date = parse(iso(new Date())); render(); });
 $("pick").addEventListener("change", e => { if (e.target.value) { state.date = parse(e.target.value); render(); } });
+/* Filtre par catégorie : un clic sur une catégorie de la légende la sélectionne ou la désélectionne. */
+function syncCats(){
+  const box = document.querySelector(".legend .cats"); if (!box) return;
+  box.classList.toggle("filtering", state.cats.size > 0);
+  for (const b of box.querySelectorAll(".catf")) b.setAttribute("aria-pressed", String(state.cats.has(b.dataset.cat)));
+  $("catAll").hidden = state.cats.size === 0;
+}
+document.addEventListener("click", ev => {
+  const b = ev.target.closest(".catf, .catf-all"); if (!b) return;
+  if (b.classList.contains("catf-all")) state.cats.clear();
+  else if (state.cats.has(b.dataset.cat)) state.cats.delete(b.dataset.cat); else state.cats.add(b.dataset.cat);
+  syncCats(); render();
+});
 let qTimer = null;
 $("q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value.trim() ? e.target.value : ""; render(); }, 150); });
 $("q").addEventListener("keydown", e => { if (e.key === "Escape" && e.target.value) { e.target.value = ""; state.q = ""; render(); } });
