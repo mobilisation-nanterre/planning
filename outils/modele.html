@@ -65,7 +65,32 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);m
 .fr-room .n{font-weight:700}
 .fr-room .m,.fr-room .x{font-size:13px;color:var(--muted)}
 .fr-room.busy .x{color:var(--warn)}
-body.public .legend{display:none!important}
+body.public .legend .st{display:none!important}
+/* Catégories d'événements : chacune redéfinit les couleurs de bloc. « Autres » (et tout événement sans catégorie) en gris. */
+.cat-cours{--block:#dbe8f6;--block-edge:#2f6fb0;--block-ink:#0f2f52}
+.cat-ag{--block:#fde2cf;--block-edge:#d4651b;--block-ink:#5a2606}
+.cat-culture{--block:#f6dcef;--block-edge:#b83b8f;--block-ink:#561343}
+.cat-permanence{--block:#d4f0e8;--block-edge:#1f8a6c;--block-ink:#0b3b2e}
+.cat-convivial{--block:#fbefc2;--block-edge:#b8900a;--block-ink:#4d3c02}
+.cat-autre{--block:#e8e6e3;--block-edge:#85807a;--block-ink:#2e2b28}
+.legend .cats{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.legend .st{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding-left:12px;border-left:1px solid var(--line-strong)}
+td .sw{margin-right:6px}
+@media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]) .cat-cours{--block:#1c3550;--block-edge:#6aa5e0;--block-ink:#dcebfb}
+:root:not([data-theme="light"]) .cat-ag{--block:#4a2a14;--block-edge:#f0954f;--block-ink:#ffe6d3}
+:root:not([data-theme="light"]) .cat-culture{--block:#46193c;--block-edge:#e07ac0;--block-ink:#fbe1f3}
+:root:not([data-theme="light"]) .cat-permanence{--block:#123f33;--block-edge:#4cc79f;--block-ink:#d6f6ec}
+:root:not([data-theme="light"]) .cat-convivial{--block:#43380f;--block-edge:#e3c04a;--block-ink:#fbf0c8}
+:root:not([data-theme="light"]) .cat-autre{--block:#2d2b29;--block-edge:#9a948d;--block-ink:#ece8e4}
+}
+:root[data-theme="dark"] .cat-cours{--block:#1c3550;--block-edge:#6aa5e0;--block-ink:#dcebfb}
+:root[data-theme="dark"] .cat-ag{--block:#4a2a14;--block-edge:#f0954f;--block-ink:#ffe6d3}
+:root[data-theme="dark"] .cat-culture{--block:#46193c;--block-edge:#e07ac0;--block-ink:#fbe1f3}
+:root[data-theme="dark"] .cat-permanence{--block:#123f33;--block-edge:#4cc79f;--block-ink:#d6f6ec}
+:root[data-theme="dark"] .cat-convivial{--block:#43380f;--block-edge:#e3c04a;--block-ink:#fbf0c8}
+:root[data-theme="dark"] .cat-autre{--block:#2d2b29;--block-edge:#9a948d;--block-ink:#ece8e4}
+
 .viewpick{display:flex;flex-direction:column;gap:4px;min-width:0;max-width:100%}
 .viewpick-label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:600}
@@ -264,7 +289,7 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
 
   <div class="summary">
     <span id="count"></span>
-    <span class="legend"><span><span class="sw"></span>Confirmée</span><span><span class="sw req"></span>Demandée</span><span><span class="sw conf"></span>Conflit de salle</span></span>
+    <span class="legend"><span class="cats"><span><span class="sw cat-cours"></span>Cours, ateliers, conférences</span><span><span class="sw cat-ag"></span>AG, réunions</span><span><span class="sw cat-culture"></span>Activités culturelles et artistiques</span><span><span class="sw cat-permanence"></span>Permanences, entraide</span><span><span class="sw cat-convivial"></span>Moments conviviaux</span><span><span class="sw cat-autre"></span>Autres</span></span><span class="st"><span><span class="sw req"></span>Demandée</span><span><span class="sw conf"></span>Conflit de salle</span></span></span>
   </div>
 
   <div id="notice" hidden></div>
@@ -380,8 +405,14 @@ function clean(d){
   if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return null;
   return { id: d.id, date: x.date, debut: x.debut, fin: x.fin, s, e, salle: String(x.salle || ""), salleId: typeof x.salleId === "string" ? x.salleId : "", batiment: String(x.batiment || ""), intitule: String(x.intitule || "Sans titre"),
            demandeur: String(x.demandeur || ""), statut: ["Confirmée","Demandée","Annulée"].includes(x.statut) ? x.statut : "Confirmée",
-           remarques: String(x.remarques || ""), auteur: typeof x.auteur === "string" ? x.auteur : null, modifieLe: x.modifieLe || null };
+           remarques: String(x.remarques || ""), categorie: String(x.categorie || ""), auteur: typeof x.auteur === "string" ? x.auteur : null, modifieLe: x.modifieLe || null };
 }
+/* Catégories d'événements (champ « categorie » ; absent ou inconnu = « autre »). */
+const CATS = [["cours","Cours, ateliers, conférences"],["ag","AG, réunions"],["culture","Activités culturelles et artistiques"],["permanence","Permanences, entraide"],["convivial","Moments conviviaux"],["autre","Autres"]];
+const CAT_KEYS = CATS.map(c => c[0]);
+const catOf = ev => CAT_KEYS.includes(ev.categorie) ? ev.categorie : "autre";
+const catCls = ev => "cat-" + catOf(ev);
+const catLabel = ev => CATS.find(c => c[0] === catOf(ev))[1];
 const active = () => state.items.filter(i => i.statut !== "Annulée");
 function conflictsOf(rec, excludeId){
   const k = rec.key !== undefined ? rec.key : keyOf(rec);
@@ -414,7 +445,7 @@ function lanes(evts){
 }
 function block(ev, conf, mode){
   const top = (ev.s - START) / STEP, h = (ev.e2 - ev.s) / STEP;
-  const cls = ["ev", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : ""].join(" ");
+  const cls = ["ev", catCls(ev), ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : ""].join(" ");
   const meta = mode === "jour" ? "" : placeOf(ev);
   const tip = `${ev.intitule}${ev.demandeur ? " – " + ev.demandeur : ""} – ${placeText(ev)} – ${lab(ev.s)} à ${lab(ev.e)}${ev.statut === "Demandée" ? " (demandée)" : ""}`;
   return `<button type="button" class="${cls}" data-id="${esc(ev.id)}" title="${esc(tip)}"
@@ -448,7 +479,7 @@ function renderNow(){
   $("range").textContent = cap1(fLong.format(now));
   $("count").textContent = `${live.length} en cours · ${soon.length} dans les deux prochaines heures · ${later.length} plus tard aujourd'hui`;
   const card = (ev, kind) => {
-    const cls = ["now-card", kind === "soon" ? "soon" : "", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : ""].join(" ");
+    const cls = ["now-card", catCls(ev), kind === "soon" ? "soon" : "", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : ""].join(" ");
     return `<button type="button" class="${cls}" data-id="${esc(ev.id)}">
       ${kind === "live" ? `<span class="ag-now">En cours</span>` : ""}
       <span class="t">${esc(ev.intitule)}</span>
@@ -479,7 +510,7 @@ function renderAgenda(){
   if (!evs.length) return `<div class="ag-empty"><div class="empty">${state.dbState === "off" ? emptyText() : "Aucun événement ce jour." + (state.canWrite ? " Utilisez « + Réserver » pour en ajouter un." : "")}</div></div>`;
   return `<div class="agenda">${evs.map(ev => {
     const live = isToday && ev.s <= nowMin && nowMin < ev.e;
-    const cls = ["ag-item", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : "", isPast(ev) ? "past" : ""].join(" ");
+    const cls = ["ag-item", catCls(ev), ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : "", isPast(ev) ? "past" : ""].join(" ");
     return `<button type="button" class="${cls}" data-id="${esc(ev.id)}">
       <span class="ag-time"><b>${lab(ev.s)}</b><br>${lab(ev.e)}</span>
       <span class="ag-card">
@@ -542,7 +573,7 @@ function renderList(){
     rows.map(r => `<tr class="${r.statut==="Annulée"?"cancel":""} ${conf.has(r.id)?"conf":""} ${isPast(r)?"past":""}">
       <td class="t">${esc(fShort.format(parse(r.date)).replace(".",""))}</td><td class="t">${lab(r.s)}–${lab(r.e)}</td>
       <td>${hasRoom(r) ? `<span class="plate">${esc(nameOf(r))}</span>` : "—"}</td><td>${esc(batOf(r)) || "—"}</td>
-      <td><button type="button" class="btn" style="padding:2px 8px" data-id="${esc(r.id)}">${esc(r.intitule)}</button></td>
+      <td><button type="button" class="btn" style="padding:2px 8px" data-id="${esc(r.id)}"><span class="sw ${catCls(r)}" title="${esc(catLabel(r))}"></span>${esc(r.intitule)}</button></td>
       <td>${esc(r.demandeur)}</td>
       <td><span class="pill ${r.statut==="Demandée"?"req":""} ${conf.has(r.id)?"conf":""}">${conf.has(r.id) ? "Conflit" : esc(r.statut)}</span></td></tr>`).join("")
   }</tbody></table></div>`;
@@ -569,7 +600,7 @@ function renderSearch(){
   $("count").textContent = hits.length ? `${coming.length} à venir · ${past.length} passé${past.length>1?"s":""}` : "Aucun résultat";
   if (!hits.length) return `<div class="ag-empty"><div class="empty">Aucun événement ne correspond à « ${esc(state.q.trim())} ». Essayez un autre mot, ou effacez la recherche pour revenir au planning.</div></div>`;
   const item = ev => {
-    const cls = ["ag-item", ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : "", isPast(ev) ? "past" : ""].join(" ");
+    const cls = ["ag-item", catCls(ev), ev.statut === "Demandée" ? "req" : "", conf.has(ev.id) ? "conf" : "", isPast(ev) ? "past" : ""].join(" ");
     const remHit = ev.remarques && words.some(w => fold(ev.remarques).includes(w));
     return `<button type="button" class="${cls}" data-id="${esc(ev.id)}">
       <span class="ag-time"><b>${lab(ev.s)}</b><br>${lab(ev.e)}</span>
@@ -710,6 +741,7 @@ async function details(it){
     <dt>Horaires</dt><dd>${lab(it.s)} – ${lab(it.e)}</dd>
     <dt>Salle</dt><dd>${hasRoom(it) ? `<span class="plate">${esc(nameOf(it))}</span>` : "Non précisée"}</dd>
     <dt>Bâtiment</dt><dd>${esc(batOf(it)) || "—"}</dd>
+    <dt>Catégorie</dt><dd>${esc(catLabel(it))}</dd>
     <dt>Intervenant-e</dt><dd>${esc(it.demandeur) || "—"}</dd>
     <dt>Remarques</dt><dd class="notes">${esc(it.remarques) || "—"}</dd>
     <dt>Statut</dt><dd>${esc(it.statut)}</dd>
@@ -722,6 +754,7 @@ function form(it, preset){
   openSheet(`<div class="head"><h2 id="sheetTitle">${it ? "Modifier la réservation" : "Nouvelle réservation"}</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
   <form id="resForm" novalidate>
     <label for="f-intitule">Intitulé de l'événement<input class="field" id="f-intitule" required maxlength="140" value="${esc(p.intitule || "")}" placeholder="Ex. Journée d'étude du laboratoire"></label>
+    <label for="f-cat">Catégorie<select class="field" id="f-cat">${CATS.map(([k, l]) => `<option value="${k}" ${k === catOf(p) ? "selected" : ""}>${l}</option>`).join("")}</select></label>
     <label for="f-date">Date<input class="field" type="date" id="f-date" required value="${esc(p.date || iso(state.date))}"></label>
     <div class="two">
       <label for="f-debut">Début<select class="field" id="f-debut">${timeOptions(s, START, END - STEP)}</select></label>
@@ -756,7 +789,7 @@ function form(it, preset){
     ev.preventDefault();
     const room = ROOM_BY_ID[$("f-salle").value];
     const rec = { intitule: $("f-intitule").value.trim(), salleId: room ? room.id : "", salle: room ? room.n : "", batiment: room ? room.b : "", date: $("f-date").value,
-      debut: $("f-debut").value, fin: $("f-fin").value, demandeur: $("f-demandeur").value.trim(), statut: $("f-statut").value, remarques: $("f-remarques").value.trim() };
+      debut: $("f-debut").value, fin: $("f-fin").value, demandeur: $("f-demandeur").value.trim(), statut: $("f-statut").value, remarques: $("f-remarques").value.trim(), categorie: $("f-cat").value };
     if (!rec.intitule) return say("Indiquez l'intitulé de l'événement."), $("f-intitule").focus();
     if (!rec.date) return say("Indiquez la date."), $("f-date").focus();
     const s2 = toMin(rec.debut), e2 = toMin(rec.fin);

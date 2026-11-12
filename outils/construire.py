@@ -17,7 +17,7 @@ import json, sys, pathlib, datetime, re
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 INDEX = ROOT / "index.html"
 PUBLIC_FIELDS = {"date", "debut", "fin", "salle", "salleId", "batiment", "intitule", "demandeur", "statut", "remarques",
-                 "nom", "etage", "capacite", "usage"}
+                 "nom", "etage", "capacite", "usage", "categorie"}
 
 def snapshot():
     if not INDEX.exists():
