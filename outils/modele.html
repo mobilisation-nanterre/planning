@@ -1082,6 +1082,7 @@ if (SNAP) {
   state.dbState = "snapshot"; state.canWrite = false;
   /* La vue Salles sert à gérer les salles : inutile sur la page publique. */
   document.body.classList.add("public"); /* pas de légende des statuts sur la page publique */
+  { const sm = document.querySelector(".summary"); sm.parentNode.insertBefore($("notice"), sm); } /* message de consultation au-dessus du résumé */
   $("v-salles").remove();
   $("v-libres").remove();
   if (state.view === "libres") state.view = "jour";
