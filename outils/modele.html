@@ -72,6 +72,7 @@ body.public .legend .st{display:none!important}
 .cat-culture{--block:#fbdde6;--block-edge:#cf3768;--block-ink:#5e0f2c}
 .cat-permanence{--block:#d4f0e8;--block-edge:#1f8a6c;--block-ink:#0b3b2e}
 .cat-convivial{--block:#ebe3fb;--block-edge:#7a4fd8;--block-ink:#2f1868}
+.cat-noss{--block:#34364c;--block-edge:#0d0e18;--block-ink:#ffffff}
 .cat-autre{--block:#e8e6e3;--block-edge:#85807a;--block-ink:#2e2b28}
 .legend .cats{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
 .catf-lab{color:var(--muted)}
@@ -91,6 +92,7 @@ td .sw{margin-right:6px}
 :root:not([data-theme="light"]) .cat-culture{--block:#4a1626;--block-edge:#f07399;--block-ink:#ffe1ea}
 :root:not([data-theme="light"]) .cat-permanence{--block:#123f33;--block-edge:#4cc79f;--block-ink:#d6f6ec}
 :root:not([data-theme="light"]) .cat-convivial{--block:#2f2152;--block-edge:#a98bf0;--block-ink:#ece4ff}
+:root:not([data-theme="light"]) .cat-noss{--block:#d6d8e6;--block-edge:#ffffff;--block-ink:#151622}
 :root:not([data-theme="light"]) .cat-autre{--block:#2d2b29;--block-edge:#9a948d;--block-ink:#ece8e4}
 }
 :root[data-theme="dark"] .cat-cours{--block:#1c3550;--block-edge:#6aa5e0;--block-ink:#dcebfb}
@@ -98,6 +100,7 @@ td .sw{margin-right:6px}
 :root[data-theme="dark"] .cat-culture{--block:#4a1626;--block-edge:#f07399;--block-ink:#ffe1ea}
 :root[data-theme="dark"] .cat-permanence{--block:#123f33;--block-edge:#4cc79f;--block-ink:#d6f6ec}
 :root[data-theme="dark"] .cat-convivial{--block:#2f2152;--block-edge:#a98bf0;--block-ink:#ece4ff}
+:root[data-theme="dark"] .cat-noss{--block:#d6d8e6;--block-edge:#ffffff;--block-ink:#151622}
 :root[data-theme="dark"] .cat-autre{--block:#2d2b29;--block-edge:#9a948d;--block-ink:#ece8e4}
 
 .viewpick{display:flex;flex-direction:column;gap:4px;min-width:0;max-width:100%}
@@ -298,7 +301,7 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
 
   <div class="summary">
     <span id="count"></span>
-    <span class="legend"><span class="cats"><span class="catf-lab">Filtrer :</span><button type="button" class="catf" data-cat="cours" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-cours"></span><span class="l">Cours, ateliers, conférences</span><span class="s">Cours</span></button><button type="button" class="catf" data-cat="ag" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-ag"></span><span class="l">AG, réunions</span><span class="s">AG</span></button><button type="button" class="catf" data-cat="culture" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-culture"></span><span class="l">Activités culturelles et artistiques</span><span class="s">Culture</span></button><button type="button" class="catf" data-cat="permanence" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-permanence"></span><span class="l">Permanences, entraide</span><span class="s">Entraide</span></button><button type="button" class="catf" data-cat="convivial" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-convivial"></span><span class="l">Moments conviviaux</span><span class="s">Convivial</span></button><button type="button" class="catf" data-cat="autre" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-autre"></span><span class="l">Autres</span><span class="s">Autres</span></button><button type="button" class="catf-all" id="catAll" hidden>Tout afficher ×</button></span><span class="st"><span><span class="sw req"></span>Demandée</span><span><span class="sw conf"></span>Conflit de salle</span></span></span>
+    <span class="legend"><span class="cats"><span class="catf-lab">Filtrer :</span><button type="button" class="catf" data-cat="cours" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-cours"></span><span class="l">Cours, ateliers, conférences</span><span class="s">Cours</span></button><button type="button" class="catf" data-cat="ag" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-ag"></span><span class="l">AG, réunions</span><span class="s">AG</span></button><button type="button" class="catf" data-cat="culture" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-culture"></span><span class="l">Activités culturelles et artistiques</span><span class="s">Culture</span></button><button type="button" class="catf" data-cat="permanence" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-permanence"></span><span class="l">Permanences, entraide</span><span class="s">Entraide</span></button><button type="button" class="catf" data-cat="convivial" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-convivial"></span><span class="l">Moments conviviaux</span><span class="s">Convivial</span></button><button type="button" class="catf" data-cat="noss" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-noss"></span><span class="l">Nanterre occupée sur scène</span><span class="s">NOSS</span></button><button type="button" class="catf" data-cat="autre" aria-pressed="false" title="Afficher seulement cette catégorie (cliquer à nouveau pour annuler)"><span class="sw cat-autre"></span><span class="l">Autres</span><span class="s">Autres</span></button><button type="button" class="catf-all" id="catAll" hidden>Tout afficher ×</button></span><span class="st"><span><span class="sw req"></span>Demandée</span><span><span class="sw conf"></span>Conflit de salle</span></span></span>
   </div>
 
   <div id="notice" hidden></div>
@@ -418,7 +421,7 @@ function clean(d){
            remarques: String(x.remarques || ""), categorie: String(x.categorie || ""), auteur: typeof x.auteur === "string" ? x.auteur : null, modifieLe: x.modifieLe || null };
 }
 /* Catégories d'événements (champ « categorie » ; absent ou inconnu = « autre »). */
-const CATS = [["cours","Cours, ateliers, conférences"],["ag","AG, réunions"],["culture","Activités culturelles et artistiques"],["permanence","Permanences, entraide"],["convivial","Moments conviviaux"],["autre","Autres"]];
+const CATS = [["cours","Cours, ateliers, conférences"],["ag","AG, réunions"],["culture","Activités culturelles et artistiques"],["permanence","Permanences, entraide"],["convivial","Moments conviviaux"],["noss","Nanterre occupée sur scène"],["autre","Autres"]];
 const CAT_KEYS = CATS.map(c => c[0]);
 const catOf = ev => CAT_KEYS.includes(ev.categorie) ? ev.categorie : "autre";
 const catCls = ev => "cat-" + catOf(ev);
