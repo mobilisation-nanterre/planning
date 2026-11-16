@@ -63,6 +63,10 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);m
 .fr-room:disabled{cursor:default}
 .fr-room.busy{border-left-color:var(--warn);cursor:pointer}
 .fr-room .n{font-weight:700}
+.fr-status{margin:14px 0 4px;padding:14px 16px;border-radius:10px;font-size:17px;font-weight:700;border:1px solid}
+.fr-status.ok{background:color-mix(in srgb,#2e9d5b 12%,var(--surface));border-color:#2e9d5b;color:inherit}
+.fr-status.ko{background:var(--warn-bg);border-color:var(--warn);color:inherit}
+.fr-status small{display:block;font-size:14px;font-weight:400;margin-top:4px;color:var(--muted)}
 .fr-room .m,.fr-room .x{font-size:13px;color:var(--muted)}
 .fr-room.busy .x{color:var(--warn)}
 body.public .legend .st{display:none!important}
@@ -859,8 +863,11 @@ function renderFree(){
   $("range").textContent = cap1(fLong.format(state.date));
   const ctl = `<div class="fr-ctl"><label for="fr-debut">De<select class="field" id="fr-debut">${timeOptions(hhmm(s), START, END - STEP)}</select></label>
     <label for="fr-fin">À<select class="field" id="fr-fin">${timeOptions(hhmm(e), START + STEP, END)}</select></label></div>`;
+  /* Une seule salle choisie dans le filtre : son état sur le créneau et ses plages libres de la journée. */
+  if (state.filter.startsWith("room:")) { const r = ROOMS.find(x => x.id === state.filter.slice(5)); if (r) return ctl.replace('<div class="fr-ctl">', '<div class="free"><div class="fr-ctl">') + renderOneRoom(r, date, s, e) + `</div>`; }
   const free = [], busy = [];
-  const bookable = ROOMS.filter(r => !r.x);
+  /* Un bâtiment ou un étage choisi dans le filtre limite la liste. */
+  const bookable = (state.filter === "all" || state.filter === "none" ? ROOMS : roomsShown()).filter(r => !r.x);
   for (const r of bookable) { const b = busyFor(r, date, s, e); (b.length ? busy : free).push({r, b}); }
   $("count").textContent = `${free.length} salle${free.length>1?"s":""} libre${free.length>1?"s":""} sur ${bookable.length}`;
   const after = r => { const n = busyFor(r, date, e, END)[0]; return n ? `Ensuite occupée à ${lab(n.s)}` : "Libre jusqu'au soir"; };
@@ -874,6 +881,30 @@ function renderFree(){
     ${free.length ? block(free) : `<p class="sr-head">Aucune salle n'est libre sur tout ce créneau.</p>`}
     ${busy.length ? `<h2 class="fr-h">Occupées</h2>${block(busy)}` : ""}</div>`;
 }
+function renderOneRoom(r, date, s, e){
+  const canBook = state.canWrite && state.dbState === "ok" && !r.x;
+  const meta = [r.c ? `${r.c} places` : "", r.u, r.b].filter(Boolean).join(" · ");
+  const now = busyFor(r, date, s, e), day = busyFor(r, date, START, END);
+  $("count").textContent = now.length ? `${r.n} : occupée sur ce créneau` : `${r.n} : libre sur ce créneau`;
+  const status = now.length
+    ? `<div class="fr-status ko">${esc(r.n)} est occupée entre ${lab(s)} et ${lab(e)}<small>${now.map(x => `${lab(x.s)}–${lab(x.e)} · ${esc(x.t)}`).join("<br>")}</small></div>`
+    : `<div class="fr-status ok">${esc(r.n)} est libre de ${lab(s)} à ${lab(e)}<small>${esc(meta)}</small></div>`;
+  /* plages libres = la journée moins les occupations */
+  const gaps = []; let t = START;
+  for (const x of day) { if (x.s > t) gaps.push([t, x.s]); t = Math.max(t, x.e); }
+  if (t < END) gaps.push([t, END]);
+  const slot = ([a, b]) => `<button type="button" class="fr-room" data-free-slot="${a}|${b}" data-room="${esc(r.id)}" ${canBook ? `title="Réserver ${esc(r.n)} sur cette plage"` : "disabled"}><span class="n">${lab(a)} – ${lab(b)}</span><span class="x">${b - a >= 60 ? `${Math.floor((b - a) / 60)} h${(b - a) % 60 ? String((b - a) % 60).padStart(2, "0") : ""}` : `${b - a} min`} de libre</span></button>`;
+  const occ = x => `<button type="button" class="fr-room busy" ${x.id ? `data-id="${esc(x.id)}"` : "disabled"}><span class="n">${lab(x.s)} – ${lab(x.e)}</span><span class="x">${esc(x.t)}</span></button>`;
+  return `${status}${r.x ? `<p class="sr-head">Cette salle est marquée non réservable.</p>` : ""}
+    <h2 class="fr-h">Plages libres dans la journée${canBook ? ` <span class="hint">· cliquez pour réserver</span>` : ""}</h2>
+    ${gaps.length ? `<div class="fr-list">${gaps.map(slot).join("")}</div>` : `<p class="sr-head">Aucune plage libre ce jour.</p>`}
+    ${day.length ? `<h2 class="fr-h">Occupations du jour</h2><div class="fr-list">${day.map(occ).join("")}</div>` : ""}`;
+}
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-free-slot]"); if (!b || b.disabled) return;
+  const [a, z] = b.dataset.freeSlot.split("|").map(Number);
+  form(null, {date: iso(state.date), debut: hhmm(a), fin: hhmm(z), salleId: b.dataset.room});
+});
 document.addEventListener("change", ev => {
   if (ev.target.id !== "fr-debut" && ev.target.id !== "fr-fin") return;
   let s = toMin($("fr-debut").value), e = toMin($("fr-fin").value);
