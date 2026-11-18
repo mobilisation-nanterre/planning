@@ -390,7 +390,7 @@ const STEP_DAYS = {trois: 3, cinq: 7, semaine: 7, jour: 1, libres: 1};
 const todayISO = iso(new Date());
 const state = {
   view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue4") || "jour"),
-  date: parse(todayISO >= PERIOD.from && todayISO <= PERIOD.to ? todayISO : PERIOD.from),
+  date: parse(todayISO), /* le planning s'ouvre toujours sur aujourd'hui */
   filter: store.get("ric.filter") || "all",
   q: "", cats: new Set(), items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
 };
@@ -554,7 +554,7 @@ function renderWeek(nDays = 7){
   $("range").textContent = nDays === 1 ? cap1(fLong.format(days[0])) : nDays === 3 ? `Du ${fDow.format(days[0]).replace(".","")} ${fDM.format(days[0])} au ${fDow.format(last).replace(".","")} ${fDM.format(last)} ${last.getFullYear()}` : nDays === 5 ? `Du lundi ${fDM.format(days[0])} au vendredi ${fDM.format(last)} ${last.getFullYear()}` : `Semaine du ${fDM.format(days[0])} au ${fDM.format(last)} ${last.getFullYear()}`;
   let n = 0, head = `<div class="corner"></div>`, cols = "";
   for (const d of days) {
-    const di = iso(d), we = d.getDay() === 0 || d.getDay() === 6, today = di === iso(new Date()), out = di < PERIOD.from || di > PERIOD.to;
+    const di = iso(d), we = d.getDay() === 0 || d.getDay() === 6, today = di === iso(new Date()), out = false; /* plus de période limitée : aucun jour grisé */
     head += `<div class="dh ${we?"we":""} ${today?"today":""} ${out?"out":""}"><span class="dow">${esc(fDow.format(d).replace(".",""))}</span><span class="dnum">${esc(fDM.format(d))}</span></div>`;
     const evs = lanes(shown.filter(i => i.date === di)); n += evs.length;
     cols += `<div class="col ${we?"we":""} ${today?"today":""} ${state.canWrite?"writable":""}" data-date="${di}">${nowLine(di)}${evs.map(e => block(e, conf, "semaine")).join("")}</div>`;
