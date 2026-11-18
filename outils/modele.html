@@ -66,6 +66,9 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);m
 .fr-status{margin:14px 0 4px;padding:14px 16px;border-radius:10px;font-size:17px;font-weight:700;border:1px solid}
 .fr-status.ok{background:color-mix(in srgb,#2e9d5b 12%,var(--surface));border-color:#2e9d5b;color:inherit}
 .fr-status.ko{background:var(--warn-bg);border-color:var(--warn);color:inherit}
+.code-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.code{font-family:var(--f-mono,monospace);font-weight:700;letter-spacing:.04em;background:var(--warn-bg);border-radius:4px;padding:1px 6px}
+.copybox{width:100%;box-sizing:border-box;margin-top:10px;font:inherit;font-size:14px;min-height:150px}
 .fr-status small{display:block;font-size:14px;font-weight:400;margin-top:4px;color:var(--muted)}
 .fr-room .m,.fr-room .x{font-size:13px;color:var(--muted)}
 .fr-room.busy .x{color:var(--warn)}
@@ -392,7 +395,7 @@ const state = {
   view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (store.get("ric.vue4") || "jour"),
   date: parse(todayISO), /* le planning s'ouvre toujours sur aujourd'hui */
   filter: store.get("ric.filter") || "all",
-  q: "", cats: new Set(), items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
+  q: "", cats: new Set(), codes: {}, items: [], db: null, dbState: "loading", canWrite: false, myId: null, user: null
 };
 if (!VIEWS.includes(state.view)) state.view = "jour";
 
@@ -764,13 +767,31 @@ async function details(it){
     <dt>Horaires</dt><dd>${lab(it.s)} – ${lab(it.e)}</dd>
     <dt>Salle</dt><dd>${hasRoom(it) ? `<span class="plate">${esc(nameOf(it))}</span>` : "Non précisée"}</dd>
     <dt>Bâtiment</dt><dd>${esc(batOf(it)) || "—"}</dd>
+    ${roomOf(it) && state.codes[roomOf(it).id] ? `<dt>Code d'accès</dt><dd class="code-row"><span class="code">${esc(state.codes[roomOf(it).id])}</span><button type="button" class="btn" data-copy-code="${esc(state.codes[roomOf(it).id])}">Copier le code</button></dd>` : ""}
     <dt>Catégorie</dt><dd>${esc(catLabel(it))}</dd>
     <dt>Intervenant-e</dt><dd>${esc(it.demandeur) || "—"}</dd>
     <dt>Remarques</dt><dd class="notes">${esc(it.remarques) || "—"}</dd>
     <dt>Statut</dt><dd>${esc(it.statut)}</dd>
     ${who ? `<dt>Saisie par</dt><dd>${esc(who)}</dd>` : ""}</dl>
-    ${state.canWrite ? `<div class="actions"><button type="button" class="btn primary" data-edit="${esc(it.id)}">Modifier</button></div>` : ""}`);
+    ${state.canWrite ? `<div class="actions"><button type="button" class="btn primary" data-edit="${esc(it.id)}">Modifier</button>${hasRoom(it) ? `<button type="button" class="btn" data-reply="${esc(it.id)}">Copier la réponse</button>` : ""}</div><div id="copyZone"></div>` : ""}`);
 }
+/* Réponse type à envoyer à la personne qui a demandé le créneau (avec le code d'accès s'il est connu). */
+function replyText(it){
+  const r = roomOf(it), code = r && state.codes[r.id];
+  const fl = r ? ({RDC: "rez-de-chaussée", Autre: ""}[r.e] ?? (r.e ? r.e + " étage" : "")) : "";
+  const where = [batOf(it) ? "bâtiment " + batOf(it) : "", fl].filter(Boolean).join(", ");
+  return `Bonjour, votre créneau est confirmé : « ${it.intitule} », ${fLong.format(parse(it.date))} de ${lab(it.s)} à ${lab(it.e)}, salle ${nameOf(it)}${where ? ` (${where})` : ""}.${code ? ` Code d'accès : ${code}. Merci de ne pas le diffuser.` : ""}\nBien à vous,`;
+}
+async function copyText(text, zone){
+  try { await navigator.clipboard.writeText(text); toast("Copié dans le presse-papiers"); return; } catch {}
+  /* Presse-papiers indisponible : on affiche le texte sélectionné, à copier soi-même. */
+  if (zone) { zone.innerHTML = `<textarea class="field copybox" readonly></textarea>`; const t = zone.querySelector("textarea"); t.value = text; t.focus(); t.select(); toast("Sélectionné : faites Ctrl+C ou Cmd+C"); }
+}
+document.addEventListener("click", ev => {
+  const c = ev.target.closest("[data-copy-code]"); if (c) { copyText(c.dataset.copyCode, $("copyZone")); return; }
+  const b = ev.target.closest("[data-reply]"); if (!b) return;
+  const it = state.items.find(i => i.id === b.dataset.reply); if (it) copyText(replyText(it), $("copyZone"));
+});
 function form(it, preset){
   const p = it ? {...it, salleId: roomOf(it) ? roomOf(it).id : ""} : (preset || {});
   const s = p.debut || "09:00", e = p.fin || hhmm(Math.min(toMin(s) + 120, END));
@@ -946,6 +967,7 @@ function roomForm(room){
     <label for="r-etage">Étage<select class="field" id="r-etage">${FLOORS.map(f => `<option value="${f}" ${f === r.e ? "selected" : ""}>${FLOOR_LABEL[f]}</option>`).join("")}</select></label>
     <label for="r-cap">Capacité <span class="hint">nombre de places, facultatif</span><input class="field" id="r-cap" type="number" min="1" max="2000" step="1" inputmode="numeric" value="${r.c ?? ""}"></label>
     <label for="r-usage">Usage <span class="hint">facultatif</span><input class="field" id="r-usage" maxlength="80" value="${esc(r.u)}" placeholder="Ex. Salle de répétition"></label>
+    ${state.canWrite ? `<label for="r-code">Code d'accès <span class="hint">confidentiel · visible seulement par les personnes éditrices</span><input class="field" id="r-code" maxlength="30" autocomplete="off" value="${esc(room ? state.codes[room.id] || "" : "")}"></label>` : ""}
     <label class="check" for="r-nores"><input type="checkbox" id="r-nores" ${r.x ? "checked" : ""}><span>Salle non réservable<br><span class="hint" style="font-size:13px;color:var(--muted)">Elle ne sera plus proposée dans le formulaire de réservation ni dans « Salles libres ». Les réservations existantes sont conservées.</span></span></label>
     ${room && nRes ? `<p class="hint" style="margin:0;font-size:13px;color:var(--muted)">${nRes} réservation${nRes>1?"s":""} utilise${nRes>1?"nt":""} cette salle. Si vous changez son nom ou son bâtiment, elle${nRes>1?"s":""} suivr${nRes>1?"ont":"a"}.</p>` : ""}
     <div id="roomMsg" hidden></div>
@@ -976,7 +998,14 @@ function roomForm(room){
         await state.db.doc("salles/" + room.id).set(body);
         if (room.n !== nom || room.b !== batiment || linked.some(i => i.salleId !== room.id))
           for (const it of linked) await state.db.doc("reservations/" + it.id).update({salleId: room.id, salle: nom, batiment, modifieLe: new Date().toISOString()});
-      } else await state.db.collection("salles").add(body);
+      }
+      const newRef = room ? null : await state.db.collection("salles").add(body);
+      const rid = room ? room.id : newRef && newRef.id;
+      const code = $("r-code") ? $("r-code").value.trim() : null;
+      if (rid && code !== null && code !== (state.codes[rid] || "")) {
+        if (code) await state.db.doc("codes/" + rid).set({code, modifieLe: new Date().toISOString()});
+        else await state.db.doc("codes/" + rid).delete();
+      }
       closeSheet(); toast(room ? "Salle modifiée" : "Salle ajoutée");
     } catch (err) { $("roomSave").disabled = false; say(writeError(err)); }
   });
@@ -1142,6 +1171,8 @@ if (SNAP) {
     const can = await user.can("data.write");
     state.canWrite = can === null ? await user.canEdit() || !!state.myId : can;
   }
+  /* Codes d'accès des salles : collection à part, lisible seulement par les personnes éditrices (règle « admin »). */
+  db.collection("codes").onSnapshot(snap => { const c = {}; for (const d of snap.docs) { const x = d.data(); if (x && typeof x.code === "string" && x.code) c[d.id] = x.code; } state.codes = c; }, () => { state.codes = {}; });
   db.collection("salles").onSnapshot(snap => { setRooms(snap.docs.map(parseRoom).filter(Boolean)); buildFilter(); render(); }, () => {});
   db.collection("reservations").onSnapshot(snap => {
     state.items = snap.docs.map(clean).filter(Boolean);
