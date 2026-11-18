@@ -775,6 +775,18 @@ async function details(it){
     ${who ? `<dt>Saisie par</dt><dd>${esc(who)}</dd>` : ""}</dl>
     ${state.canWrite ? `<div class="actions"><button type="button" class="btn primary" data-edit="${esc(it.id)}">Modifier</button>${hasRoom(it) ? `<button type="button" class="btn" data-reply="${esc(it.id)}">Copier la réponse</button>` : ""}</div><div id="copyZone"></div>` : ""}`);
 }
+function afterSave(rec, edited){
+  const text = replyText(rec);
+  openSheet(`<div class="head"><h2>${edited ? "Réservation modifiée" : "Réservation enregistrée"}</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
+    <p class="sr-head">Réponse à envoyer :</p>
+    <textarea class="field copybox" id="replyBox" readonly></textarea>
+    <div class="actions"><button type="button" class="btn primary" id="replyCopy">Copier la réponse</button><button type="button" class="btn" data-close>Fermer</button></div>`);
+  $("replyBox").value = text;
+  $("replyCopy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(text); toast("Réponse copiée"); closeSheet(); }
+    catch { const t = $("replyBox"); t.focus(); t.select(); toast("Sélectionnée : faites Ctrl+C ou Cmd+C"); }
+  });
+}
 /* Réponse type à envoyer à la personne qui a demandé le créneau (avec le code d'accès s'il est connu). */
 function replyText(it){
   const r = roomOf(it), code = r && state.codes[r.id];
@@ -850,8 +862,10 @@ function form(it, preset){
     try {
       if (it) await state.db.doc("reservations/" + it.id).set(body);
       else await state.db.collection("reservations").add(body);
-      closeSheet(); toast(it ? "Réservation modifiée" : "Réservation enregistrée");
       state.date = parse(rec.date); render();
+      /* Réservation confirmée avec une salle : on propose tout de suite la réponse à envoyer. */
+      if (room && rec.statut === "Confirmée") afterSave({...rec, s: s2, e: e2}, !!it);
+      else { closeSheet(); toast(it ? "Réservation modifiée" : "Réservation enregistrée"); }
     } catch (err) { $("saveBtn").disabled = false; say(writeError(err)); }
   });
   const del = $("delBtn");
