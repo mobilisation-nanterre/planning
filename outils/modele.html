@@ -792,7 +792,7 @@ function replyText(it){
   const r = roomOf(it), code = r && state.codes[r.id];
   const fl = r ? ({RDC: "rez-de-chaussée", Autre: ""}[r.e] ?? (r.e ? r.e + " étage" : "")) : "";
   const where = [batOf(it) ? "bâtiment " + batOf(it) : "", fl].filter(Boolean).join(", ");
-  return `Bonjour, votre créneau est confirmé : « ${it.intitule} », ${fLong.format(parse(it.date))} de ${lab(it.s)} à ${lab(it.e)}, salle ${nameOf(it)}${where ? ` (${where})` : ""}.${code ? ` Code d'accès : ${code}. Merci de ne pas le diffuser.` : ""}\nBien à vous,`;
+  return `Bonjour, votre créneau est confirmé : « ${it.intitule} », ${fLong.format(parse(it.date))} de ${lab(it.s)} à ${lab(it.e)}, salle ${nameOf(it)}${where ? ` (${where})` : ""}.${code ? ` Code d'accès : ${code}. Merci de ne pas le diffuser.` : ""} Les salles attribuées peuvent changer. Pensez à consulter régulièrement le planning en ligne : https://mobilisation-nanterre.github.io/planning/\nBien à vous,`;
 }
 async function copyText(text, zone){
   try { await navigator.clipboard.writeText(text); toast("Copié dans le presse-papiers"); return; } catch {}
