@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Planning Université ouverte Nanterre</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -68,7 +69,7 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);m
 .fr-status.ko{background:var(--warn-bg);border-color:var(--warn);color:inherit}
 .code-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .code{font-family:var(--f-mono,monospace);font-weight:700;letter-spacing:.04em;background:var(--warn-bg);border-radius:4px;padding:1px 6px}
-.copybox{width:100%;box-sizing:border-box;margin-top:10px;font:inherit;font-size:14px;min-height:150px}
+.copybox{width:100%;box-sizing:border-box;margin-top:10px;font:inherit;font-size:14px;min-height:320px}
 .fr-status small{display:block;font-size:14px;font-weight:400;margin-top:4px;color:var(--muted)}
 .fr-room .m,.fr-room .x{font-size:13px;color:var(--muted)}
 .fr-room.busy .x{color:var(--warn)}
@@ -792,7 +793,7 @@ function replyText(it){
   const r = roomOf(it), code = r && state.codes[r.id];
   const fl = r ? ({RDC: "rez-de-chaussée", Autre: ""}[r.e] ?? (r.e ? r.e + " étage" : "")) : "";
   const where = [batOf(it) ? "bâtiment " + batOf(it) : "", fl].filter(Boolean).join(", ");
-  return `Bonjour, votre créneau est confirmé : « ${it.intitule} », ${fLong.format(parse(it.date))} de ${lab(it.s)} à ${lab(it.e)}, salle ${nameOf(it)}${where ? ` (${where})` : ""}.${code ? ` Code d'accès : ${code}. Merci de ne pas le diffuser.` : ""} Les salles attribuées peuvent changer. Pensez à consulter régulièrement le planning en ligne : https://mobilisation-nanterre.github.io/planning/\nBien à vous,`;
+  return `Bonjour, votre créneau est confirmé : « ${it.intitule} », ${fLong.format(parse(it.date))} de ${lab(it.s)} à ${lab(it.e)}, salle ${nameOf(it)}${where ? ` (${where})` : ""}.${code ? ` Code d'accès : ${code}. Merci de ne pas le diffuser.` : ""} Les salles attribuées peuvent changer. Pensez à consulter régulièrement le planning en ligne : https://mobilisation-nanterre.github.io/planning/\n\nToute personne animant un évènement dans le cadre de l’université ouverte s’engage à respecter la charte suivante :\n- Tous les évènements dans le cadre de l’université ouverte sont librement accessibles à toutes et tous.\n- Les évènements peuvent être présentés comme étant plus particulièrement destinés à tel ou tel type de public.\n- Les intervenant-e-s sont libres de faire la promotion de leurs événements dans le cadre de l’université ouverte.\n- La présence aux évènements de l’université ouverte n’est pas obligatoire : aucun contrôle d’assiduité ne peut avoir lieu.\n- Aucun évènement qui a lieu dans le cadre de l’université ouverte n’est évaluable (y compris dans le cadre d’un 10 améliorable et/ou pour des bonus éventuels).\n- Le contenu des évènements dans le cadre de l’université ouverte est libre (toutes les thématiques sont les bienvenues), sous réserve de conformité à cette charte.\n\nBien à vous,`;
 }
 async function copyText(text, zone){
   try { await navigator.clipboard.writeText(text); toast("Copié dans le presse-papiers"); return; } catch {}
@@ -1198,3 +1199,5 @@ if (SNAP) {
 })();
 })();
 </script>
+
+</body></html>
