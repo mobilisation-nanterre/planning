@@ -40,6 +40,15 @@ button,input,select,textarea{font:inherit;color:inherit}
 h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);margin:0;letter-spacing:-.01em;text-wrap:balance}
 .topright{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .publink{font-size:13px;color:var(--accent)}
+/* Bandeau de chiffres : un chiffre tiré au hasard à chaque affichage (clic : un autre). */
+.stat{display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;border:0;width:100%;text-align:left;cursor:pointer;color:#fff;border-radius:14px;padding:16px 20px;
+  background:linear-gradient(115deg,#1d5d8a 0%,#7a4fd8 55%,#cf3768 100%);box-shadow:0 8px 24px rgba(29,93,138,.25);font:inherit}
+.stat .big{font-family:var(--f-display);font-weight:700;font-size:clamp(38px,7vw,56px);line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat .txt{flex:1 1 240px;min-width:0;font-size:clamp(16px,2.2vw,20px);font-weight:600;line-height:1.3;text-wrap:balance}
+.stat .txt small{display:block;font-size:13px;font-weight:400;opacity:.85;margin-top:3px}
+.stat .more{font-size:13px;opacity:.85;white-space:nowrap;border:1px solid rgba(255,255,255,.55);border-radius:999px;padding:3px 10px}
+.stat:hover .more{opacity:1;background:rgba(255,255,255,.15)}
+@media (prefers-reduced-motion:no-preference){.stat.pop .big{animation:pop .45s ease-out}@keyframes pop{from{transform:scale(.7);opacity:.2}}}
 .propose{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:12px 16px;font-size:16px;font-weight:600;overflow-wrap:anywhere}
 .propose a{color:inherit;text-decoration:underline;text-underline-offset:3px}
 .status{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--muted)}
@@ -283,6 +292,8 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
       <span id="status" class="status"><i></i><span id="statusText">Chargement…</span></span>
     </div>
   </header>
+
+  <button type="button" class="stat" id="statBand" hidden aria-live="polite"></button>
 
   <p class="propose" id="propose" hidden>Pour faire une proposition d'activité : <a href="mailto:nanterre.gestion.planning@proton.me">nanterre.gestion.planning@proton.me</a></p>
 
@@ -644,6 +655,49 @@ function renderSearch(){
   html += coming.length ? byDay(coming) : `<p class="sr-head">Aucun événement à venir ne correspond.</p>`;
   if (past.length) html += `<h2 class="sr-sep">Déjà passés</h2>` + byDay(past);
   return html + `</div>`;
+}
+/* ---------- chiffres de l'université ouverte (activités déjà passées) ---------- */
+let lastStat = -1;
+function statPool(){
+  const past = active().filter(isPast);
+  if (past.length < 5) return [];
+  const nf = n => n.toLocaleString("fr-FR");
+  const first = past.reduce((m, i) => i.date < m ? i.date : m, past[0].date);
+  const depuis = `depuis le ${new Intl.DateTimeFormat("fr-FR",{day:"numeric",month:"long"}).format(parse(first))}`;
+  const count = (key) => { const m = new Map(); for (const i of past) { const k = key(i); if (k) m.set(k, (m.get(k) || 0) + 1); } return m; };
+  const top = m => [...m.entries()].sort((a,b) => b[1] - a[1])[0];
+  const byCat = c => past.filter(i => catOf(i) === c).length;
+  const hours = Math.round(past.reduce((t, i) => t + (i.e - i.s), 0) / 60);
+  const days = count(i => i.date), rooms = count(i => hasRoom(i) ? nameOf(i) : "");
+  const people = new Set(past.map(i => i.demandeur.trim().toLowerCase()).filter(Boolean));
+  const [recDay, recN] = top(days), [topRoom, topRoomN] = top(rooms) || [];
+  const fDay = new Intl.DateTimeFormat("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+  const pool = [
+    [past.length, "activités ont déjà eu lieu à l'université ouverte", depuis],
+    [hours, "heures d'activités partagées", depuis],
+    [byCat("cours"), "cours, ateliers et conférences donnés", depuis],
+    [byCat("ag"), "AG et réunions tenues", depuis],
+    [byCat("culture") + byCat("nossrep"), "activités culturelles, artistiques et spectacles", depuis],
+    [byCat("convivial"), "moments conviviaux partagés", depuis],
+    [byCat("permanence"), "permanences et temps d'entraide", depuis],
+    [rooms.size, "salles différentes ont accueilli l'université ouverte", depuis],
+    [days.size, "jours d'université ouverte", depuis],
+    [people.size, "intervenant·es différent·es ont animé une activité", depuis],
+    [recN, "activités en une seule journée : le record", cap1(fDay.format(parse(recDay)))],
+    [topRoomN || 0, `activités en ${topRoom || ""} : la salle la plus utilisée`, depuis],
+    [Math.round(past.length / days.size), "activités par jour en moyenne", depuis],
+  ];
+  return pool.filter(([n]) => n >= 3).map(([n, t, sub]) => ({big: nf(n), t, sub}));
+}
+function showStat(next){
+  const el = $("statBand"), pool = statPool();
+  if (!pool.length) { el.hidden = true; return; }
+  let i = Math.floor(Math.random() * pool.length);
+  if (next && pool.length > 1 && i === lastStat) i = (i + 1) % pool.length;
+  lastStat = i; const p = pool[i];
+  el.innerHTML = `<span class="big">${esc(p.big)}</span><span class="txt">${esc(p.t)}<small>${esc(p.sub)}</small></span><span class="more">Un autre chiffre ↻</span>`;
+  el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
+  el.hidden = false;
 }
 /* Un événement est passé quand son heure de fin est dépassée. */
 function isPast(it){
@@ -1119,6 +1173,7 @@ sheetEl.addEventListener("click", e => {
   if (ed) { const it = state.items.find(i => i.id === ed.dataset.edit); if (it) form(it); }
 });
 $("backdrop").addEventListener("click", closeSheet);
+$("statBand").addEventListener("click", () => showStat(true));
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !sheetEl.hidden) closeSheet(); });
 setInterval(() => { if (sheetEl.hidden && state.view in STEP_DAYS) render(); }, 5 * 60 * 1000);
 setInterval(() => { if (sheetEl.hidden && state.view === "maintenant") render(); }, 30 * 1000);
@@ -1172,7 +1227,7 @@ if (SNAP) {
   if (state.view === "libres") state.view = "jour";
   $("propose").hidden = false;
   if (state.view === "salles") state.view = "jour";
-  buildFilter(); setStatus(); render();
+  buildFilter(); setStatus(); render(); showStat();
 } else (async () => {
   const c = window.claude;
   const [db, user] = await Promise.all([c ? c.use("db") : null, c ? c.use("user") : null]);
@@ -1190,8 +1245,10 @@ if (SNAP) {
   db.collection("codes").onSnapshot(snap => { const c = {}; for (const d of snap.docs) { const x = d.data(); if (x && typeof x.code === "string" && x.code) c[d.id] = x.code; } state.codes = c; }, () => { state.codes = {}; });
   db.collection("salles").onSnapshot(snap => { setRooms(snap.docs.map(parseRoom).filter(Boolean)); buildFilter(); render(); }, () => {});
   db.collection("reservations").onSnapshot(snap => {
+    const firstLoad = state.dbState !== "ok";
     state.items = snap.docs.map(clean).filter(Boolean);
     state.dbState = "ok"; setStatus();
+    if (firstLoad) showStat();
     render();
   }, err => {
     state.dbState = err && err.code === "revoked" ? "off" : "ok"; setStatus(); render();
