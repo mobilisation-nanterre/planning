@@ -51,6 +51,8 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3vw,30px);m
 .stat:hover .more{opacity:1;background:rgba(255,255,255,.15)}
 @media (prefers-reduced-motion:no-preference){.stat.pop .big{animation:pop .45s ease-out}@keyframes pop{from{transform:scale(.7);opacity:.2}}}
 .propose{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:12px 16px;font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.propose>span{display:block}.propose .charteline{font-size:15px;font-weight:500}#proposeMail:not([hidden])+.charteline{margin-top:6px;opacity:.95}
+.charte{margin:4px 0 0;padding-left:20px;line-height:1.45}.charte li{margin:6px 0}
 .propose a{color:inherit;text-decoration:underline;text-underline-offset:3px}
 .status{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--muted)}
 .status i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
@@ -296,7 +298,7 @@ dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
 
   <button type="button" class="stat" id="statBand" hidden aria-live="polite"></button>
 
-  <p class="propose" id="propose" hidden>Pour faire une proposition d'activité : <a href="mailto:nanterre.gestion.planning@proton.me">nanterre.gestion.planning@proton.me</a></p>
+  <p class="propose" id="propose"><span id="proposeMail" hidden>Pour faire une proposition d'activité : <a href="mailto:nanterre.gestion.planning@proton.me">nanterre.gestion.planning@proton.me</a></span><span class="charteline">Tous les évènements de l'université ouverte de Nanterre doivent respecter <a href="#charte" id="charteLink">la charte de l'université ouverte</a>.</span></p>
 
   <div class="bar">
     <div class="viewpick">
@@ -839,12 +841,26 @@ function afterSave(rec, edited){
     catch { const t = $("replyBox"); t.focus(); t.select(); toast("Sélectionnée : faites Ctrl+C ou Cmd+C"); }
   });
 }
+const CHARTE = [
+  "Tous les évènements dans le cadre de l’université ouverte sont librement accessibles à toutes et tous.",
+  "Les évènements peuvent être présentés comme étant plus particulièrement destinés à tel ou tel type de public.",
+  "Les intervenant-e-s sont libres de faire la promotion de leurs événements dans le cadre de l’université ouverte.",
+  "La présence aux évènements de l’université ouverte n’est pas obligatoire : aucun contrôle d’assiduité ne peut avoir lieu.",
+  "Aucun évènement qui a lieu dans le cadre de l’université ouverte n’est évaluable (y compris dans le cadre d’un 10 améliorable et/ou pour des bonus éventuels).",
+  "Le contenu des évènements dans le cadre de l’université ouverte est libre (toutes les thématiques sont les bienvenues), sous réserve de conformité à cette charte."
+  ];
+function showCharte(){
+  openSheet(`<div class="head"><h2>Charte de l'université ouverte</h2><button type="button" class="btn icon" data-close aria-label="Fermer">×</button></div>
+    <p>Toute personne animant un évènement dans le cadre de l’université ouverte s’engage à respecter la charte suivante :</p>
+    <ul class="charte">${CHARTE.map(l => `<li>${esc(l)}</li>`).join("")}</ul>
+    <div class="actions"><button type="button" class="btn" data-close>Fermer</button></div>`);
+}
 /* Réponse type à envoyer à la personne qui a demandé le créneau (avec le code d'accès s'il est connu). */
 function replyText(it){
   const r = roomOf(it), code = r && state.codes[r.id];
   const fl = r ? ({RDC: "rez-de-chaussée", Autre: ""}[r.e] ?? (r.e ? r.e + " étage" : "")) : "";
   const where = [batOf(it) ? "bâtiment " + batOf(it) : "", fl].filter(Boolean).join(", ");
-  return `Bonjour, votre créneau est confirmé : « ${it.intitule} », ${fLong.format(parse(it.date))} de ${lab(it.s)} à ${lab(it.e)}, salle ${nameOf(it)}${where ? ` (${where})` : ""}.${code ? ` Code d'accès : ${code}. Merci de ne pas le diffuser.` : ""} Les salles attribuées peuvent changer. Pensez à consulter régulièrement le planning en ligne : https://mobilisation-nanterre.github.io/planning/\n\nToute personne animant un évènement dans le cadre de l’université ouverte s’engage à respecter la charte suivante :\n- Tous les évènements dans le cadre de l’université ouverte sont librement accessibles à toutes et tous.\n- Les évènements peuvent être présentés comme étant plus particulièrement destinés à tel ou tel type de public.\n- Les intervenant-e-s sont libres de faire la promotion de leurs événements dans le cadre de l’université ouverte.\n- La présence aux évènements de l’université ouverte n’est pas obligatoire : aucun contrôle d’assiduité ne peut avoir lieu.\n- Aucun évènement qui a lieu dans le cadre de l’université ouverte n’est évaluable (y compris dans le cadre d’un 10 améliorable et/ou pour des bonus éventuels).\n- Le contenu des évènements dans le cadre de l’université ouverte est libre (toutes les thématiques sont les bienvenues), sous réserve de conformité à cette charte.\n\nBien à vous,`;
+  return `Bonjour, votre créneau est confirmé : « ${it.intitule} », ${fLong.format(parse(it.date))} de ${lab(it.s)} à ${lab(it.e)}, salle ${nameOf(it)}${where ? ` (${where})` : ""}.${code ? ` Code d'accès : ${code}. Merci de ne pas le diffuser.` : ""} Les salles attribuées peuvent changer. Pensez à consulter régulièrement le planning en ligne : https://mobilisation-nanterre.github.io/planning/\n\nToute personne animant un évènement dans le cadre de l’université ouverte s’engage à respecter la charte suivante :\n${CHARTE.map(l => "- " + l).join("\n")}\n\nBien à vous,`;
 }
 async function copyText(text, zone){
   try { await navigator.clipboard.writeText(text); toast("Copié dans le presse-papiers"); return; } catch {}
@@ -1171,6 +1187,8 @@ sheetEl.addEventListener("click", e => {
 });
 $("backdrop").addEventListener("click", closeSheet);
 $("statBand").addEventListener("click", () => showStat(true));
+$("charteLink").addEventListener("click", e => { e.preventDefault(); showCharte(); });
+if (location.hash === "#charte") setTimeout(showCharte, 0);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !sheetEl.hidden) closeSheet(); });
 setInterval(() => { if (sheetEl.hidden && state.view in STEP_DAYS) render(); }, 5 * 60 * 1000);
 setInterval(() => { if (sheetEl.hidden && state.view === "maintenant") render(); }, 30 * 1000);
@@ -1222,7 +1240,7 @@ if (SNAP) {
   $("v-salles").remove();
   $("v-libres").remove();
   if (state.view === "libres") state.view = "jour";
-  $("propose").hidden = false;
+  $("proposeMail").hidden = false;
   if (state.view === "salles") state.view = "jour";
   buildFilter(); setStatus(); render(); showStat();
 } else (async () => {
