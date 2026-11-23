@@ -678,13 +678,9 @@ function statPool(){
     [byCat("cours"), "cours, ateliers et conférences donnés", depuis],
     [byCat("ag"), "AG et réunions tenues", depuis],
     [byCat("culture") + byCat("nossrep"), "activités culturelles, artistiques et spectacles", depuis],
-    [byCat("convivial"), "moments conviviaux partagés", depuis],
-    [byCat("permanence"), "permanences et temps d'entraide", depuis],
-    [rooms.size, "salles différentes ont accueilli l'université ouverte", depuis],
     [days.size, "jours d'université ouverte", depuis],
     [people.size, "intervenant·es différent·es ont animé une activité", depuis],
     [recN, "activités en une seule journée : le record", cap1(fDay.format(parse(recDay)))],
-    [topRoomN || 0, `activités en ${topRoom || ""} : la salle la plus utilisée`, depuis],
     [Math.round(past.length / days.size), "activités par jour en moyenne", depuis],
   ];
   return pool.filter(([n]) => n >= 3).map(([n, t, sub]) => ({big: nf(n), t, sub}));
