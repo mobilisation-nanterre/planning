@@ -677,6 +677,7 @@ function statPool(){
   const fDay = new Intl.DateTimeFormat("fr-FR",{weekday:"long",day:"numeric",month:"long"});
   const pool = [
     [past.length, "activités ont déjà eu lieu à l'université ouverte", depuis],
+    [active().length, "activités au total au planning de l'université ouverte", "passées et à venir, depuis le " + depuis.slice(10)],
     [hours, "heures d'activités partagées", depuis],
     [byCat("cours"), "cours, ateliers et conférences donnés", depuis],
     [byCat("ag"), "AG et réunions tenues", depuis],
